@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * PingJobs Setup Test Script
+ * KronJob Setup Test Script
  * Run this to verify your setup is working correctly
  */
 
@@ -9,7 +9,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🧪 PingJobs Setup Test\n');
+console.log('🧪 KronJob Setup Test\n');
 
 // Test 1: Check Node.js version
 console.log('1. Checking Node.js version...');

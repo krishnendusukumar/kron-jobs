@@ -1,8 +1,8 @@
-# PingJobs - Complete Setup Guide
+# KronJob - Complete Setup Guide
 
 ## 🚀 Quick Start
 
-This guide will help you set up the complete PingJobs LinkedIn job scraper from scratch.
+This guide will help you set up the complete KronJob LinkedIn job scraper from scratch.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ This guide will help you set up the complete PingJobs LinkedIn job scraper from 
 ```bash
 # Clone the repository (if not already done)
 git clone <your-repo-url>
-cd pingjobs
+cd KronJob
 
 # Install dependencies
 npm install
@@ -78,7 +78,7 @@ npm run dev
 ### 3.2 Test the Application
 
 1. Open [http://localhost:3000](http://localhost:3000)
-2. You should see the PingJobs interface
+2. You should see the KronJob interface
 
 ### 3.3 Test Job Preferences
 
@@ -256,4 +256,4 @@ Once your basic setup is working:
 
 ---
 
-🎉 **Congratulations!** Your PingJobs LinkedIn scraper is now ready to use! 
+🎉 **Congratulations!** Your KronJob LinkedIn scraper is now ready to use! 

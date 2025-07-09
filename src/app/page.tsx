@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Search, Target, Bell, Shield, Zap, Users, ChevronRight, Mail, MapPin, DollarSign, Play, Star, Github, Linkedin, Twitter } from 'lucide-react';
 
-const PingJobsLanding = () => {
+const KronJobsLanding = () => {
   const [email, setEmail] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [keywords, setKeywords] = useState('');
@@ -67,7 +67,7 @@ const PingJobsLanding = () => {
       name: "Sarah Chen",
       role: "Software Engineer",
       image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=64&h=64&fit=crop&crop=face",
-      text: "PingJobs helped me find my dream job in just 2 weeks. The automation saved me hours of manual searching!"
+      text: "KronJobs helped me find my dream job in just 2 weeks. The automation saved me hours of manual searching!"
     },
     {
       name: "Marcus Rodriguez",
@@ -86,20 +86,20 @@ const PingJobsLanding = () => {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Navbar */}
-      <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-50">
+      <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-[#00E060] rounded-lg flex items-center justify-center">
                 <Search className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold">PingJobs</span>
+              <span className="text-xl font-bold text-[#00E060]">KronJobs</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-              <a href="#how-it-works" className="text-gray-300 hover:text-white transition-colors">How It Works</a>
-              <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-              <button className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors">
+              <a href="#features" className="text-gray-300 hover:text-[#00E060] transition-colors">Features</a>
+              <a href="#how-it-works" className="text-gray-300 hover:text-[#00E060] transition-colors">How It Works</a>
+              <a href="#pricing" className="text-gray-300 hover:text-[#00E060] transition-colors">Pricing</a>
+              <button className="bg-[#00E060] hover:bg-green-600 px-4 py-2 rounded-lg transition-colors text-white font-semibold">
                 Get Started
               </button>
             </div>
@@ -107,69 +107,130 @@ const PingJobsLanding = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.1),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(96,165,250,0.1),transparent_50%)]"></div>
+      {/* Hero Section with Planetary Motion */}
+      <section className="relative overflow-hidden bg-slate-900 min-h-screen flex items-center pt-8 lg:pt-0">
+        {/* Centered Planetary Motion Animation */}
+        <div className="absolute inset-0 z-0 pointer-events-none hidden md:flex items-center justify-center">
+          <div className="relative w-[600px] h-[600px]">
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="text-center lg:text-left">
-              <h1 className="text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
-                Your Personal Job Scout
-              </h1>
-              <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-                Automate job search, track applications, and never miss an opportunity.
-                Let AI do the heavy lifting while you focus on landing your dream job.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <button className="bg-green-500 hover:bg-green-600 px-8 py-4 rounded-lg text-white font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-green-500/25 flex items-center justify-center space-x-2">
-                  <Play className="w-5 h-5" />
-                  <span>Start Scraping</span>
-                </button>
-                <button className="border border-gray-600 hover:border-gray-500 px-8 py-4 rounded-lg text-gray-300 hover:text-white transition-colors">
-                  Join Waitlist
-                </button>
+            {/* Central Sun - The main focal point */}
+            <div className="absolute left-1/2 top-1/2 w-32 h-32 -translate-x-1/2 -translate-y-1/2">
+              <div className="w-full h-full bg-gradient-to-br from-[#00E060] to-[#00B050] rounded-full shadow-2xl shadow-[#00E060]/60 animate-pulse">
+                <div className="absolute inset-0 rounded-full bg-[#00E060] opacity-40 blur-3xl animate-pulse"></div>
+                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-[#00E060] to-[#00B050] opacity-80"></div>
               </div>
             </div>
 
-            <div className="relative">
-              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-400 ml-4">Dashboard Preview</span>
-                </div>
+            {/* Orbit 1 - Innermost */}
+            <div className="absolute left-1/2 top-1/2 w-48 h-48 -translate-x-1/2 -translate-y-1/2 border border-[#00E060]/30 rounded-full animate-spin-slow-7">
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-gradient-to-br from-[#00E060] to-[#00B050] rounded-full shadow-lg shadow-[#00E060]/60"></div>
+            </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm">Senior React Developer</span>
-                    </div>
-                    <span className="text-xs text-gray-400">2 min ago</span>
+            {/* Orbit 2 */}
+            <div className="absolute left-1/2 top-1/2 w-72 h-72 -translate-x-1/2 -translate-y-1/2 border border-[#00E060]/25 rounded-full animate-spin-slow-12-reverse">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-gradient-to-br from-[#00E060] to-[#00B050] opacity-90 rounded-full shadow-lg shadow-[#00E060]/50"></div>
+            </div>
+
+            {/* Orbit 3 */}
+            <div className="absolute left-1/2 top-1/2 w-96 h-96 -translate-x-1/2 -translate-y-1/2 border border-[#00E060]/20 rounded-full animate-spin-slow-18">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-gradient-to-br from-[#00E060] to-[#00B050] opacity-80 rounded-full shadow-lg shadow-[#00E060]/40"></div>
+            </div>
+
+            {/* Orbit 4 */}
+            <div className="absolute left-1/2 top-1/2 w-[30rem] h-[30rem] -translate-x-1/2 -translate-y-1/2 border border-[#00E060]/15 rounded-full animate-spin-slow-24-reverse">
+              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gradient-to-br from-[#00E060] to-[#00B050] opacity-70 rounded-full shadow shadow-[#00E060]/30"></div>
+            </div>
+
+            {/* Orbit 5 - Outermost */}
+            <div className="absolute left-1/2 top-1/2 w-[36rem] h-[36rem] -translate-x-1/2 -translate-y-1/2 border border-[#00E060]/10 rounded-full animate-spin-slow-32">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-gradient-to-br from-[#00E060] to-[#00B050] opacity-60 rounded-full shadow shadow-[#00E060]/20"></div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          {/* Left: Headline and CTA */}
+          <div className="w-full lg:w-1/2 flex flex-col items-center lg:items-start text-center lg:text-left">
+            <h1 className="text-5xl lg:text-6xl font-bold mb-6 text-[#00E060] leading-tight">
+              Your Personal Job Scout
+            </h1>
+            <p className="text-xl text-gray-300 mb-10 max-w-xl">
+              Automate job search, track applications, and never miss an opportunity. Let AI do the heavy lifting while you focus on landing your dream job.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center lg:justify-start">
+              <button className="bg-[#00E060] hover:bg-green-600 px-8 py-4 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center space-x-2 w-full sm:w-auto">
+                <Play className="w-5 h-5" />
+                <span>Start Scraping</span>
+              </button>
+              <button className="border border-[#00E060] px-8 py-4 rounded-lg text-[#00E060] hover:bg-[#00E060] hover:text-white transition-colors font-semibold w-full sm:w-auto">
+                Join Waitlist
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Dashboard Preview Card */}
+          <div className="w-full lg:w-1/2 flex justify-center lg:justify-end mt-16 lg:mt-0">
+            <div className="relative bg-slate-800/80 border border-slate-700/60 rounded-2xl p-8 shadow-xl backdrop-blur-md max-w-md w-full z-20">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-3 h-3 bg-[#00E060] rounded-full"></div>
+                <span className="text-sm text-gray-300 ml-4">Dashboard Preview</span>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-slate-900/60 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-[#00E060] rounded-full animate-pulse"></div>
+                    <span className="text-sm text-white">Senior React Developer</span>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm">Product Manager</span>
-                    </div>
-                    <span className="text-xs text-gray-400">5 min ago</span>
+                  <span className="text-xs text-gray-400">2 min ago</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-slate-900/60 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-[#00E060] rounded-full animate-pulse"></div>
+                    <span className="text-sm text-white">Product Manager</span>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm">Data Scientist</span>
-                    </div>
-                    <span className="text-xs text-gray-400">8 min ago</span>
+                  <span className="text-xs text-gray-400">5 min ago</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-slate-900/60 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-[#00E060] rounded-full animate-pulse"></div>
+                    <span className="text-sm text-white">Data Scientist</span>
                   </div>
+                  <span className="text-xs text-gray-400">8 min ago</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Animation Styles */}
+        <style jsx>{`
+  @keyframes spinOrbit {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .animate-spin-slow-7 {
+    animation: spinOrbit 14s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  }
+  .animate-spin-slow-12-reverse {
+    animation: spinOrbit 20s cubic-bezier(0.42, 0, 0.58, 1) infinite reverse;
+  }
+  .animate-spin-slow-18 {
+    animation: spinOrbit 26s ease-in-out infinite;
+  }
+  .animate-spin-slow-24-reverse {
+    animation: spinOrbit 32s ease-in-out infinite reverse;
+  }
+  .animate-spin-slow-32 {
+    animation: spinOrbit 40s ease-in-out infinite;
+  }
+`}</style>
+
       </section>
+
+      {/* Footer and other sections remain as-is */}
 
       {/* How It Works */}
       <section id="how-it-works" className="py-20 bg-slate-800/30">
@@ -420,10 +481,10 @@ const PingJobsLanding = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-[#00E060] rounded-lg flex items-center justify-center">
                   <Search className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold">PingJobs</span>
+                <span className="text-xl font-bold text-[#00E060]">KronJobs</span>
               </div>
               <p className="text-gray-400 mb-4">
                 Your personal job scout. Automate job search, track applications, and never miss an opportunity.
@@ -463,12 +524,13 @@ const PingJobsLanding = () => {
           </div>
 
           <div className="border-t border-slate-700/50 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 PingJobs. All rights reserved.</p>
+            <p>&copy; 2024 KronJobs. All rights reserved.</p>
           </div>
         </div>
       </footer>
+
     </div>
   );
 };
 
-export default PingJobsLanding;
+export default KronJobsLanding;

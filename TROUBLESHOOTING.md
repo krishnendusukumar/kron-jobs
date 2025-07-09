@@ -1,4 +1,4 @@
-# PingJobs Troubleshooting Guide
+# KronJob Troubleshooting Guide
 
 ## 🚨 Common Issues and Solutions
 

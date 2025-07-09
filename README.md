@@ -1,8 +1,8 @@
-# PingJobs
+# KronJob
 
 **Your Personal AI-Powered LinkedIn Job Scraper**
 
-PingJobs is a modern, scalable web application that automates your job search on LinkedIn. Built with Next.js, TypeScript, and Supabase, it helps you find, track, and manage job opportunities—without needing LinkedIn Premium or login.
+KronJob is a modern, scalable web application that automates your job search on LinkedIn. Built with Next.js, TypeScript, and Supabase, it helps you find, track, and manage job opportunities—without needing LinkedIn Premium or login.
 
 ---
 
@@ -40,8 +40,8 @@ PingJobs is a modern, scalable web application that automates your job search on
 ### 1. Clone the Repo
 
 ```bash
-git clone https://github.com/yourusername/pingjobs.git
-cd pingjobs
+git clone https://github.com/yourusername/KronJob.git
+cd KronJob
 ```
 
 ### 2. Install Dependencies
@@ -52,7 +52,7 @@ npm install
 
 ### 3. Set Up Environment Variables
 
-Create a `.env.local` file in the `pingjobs` directory:
+Create a `.env.local` file in the `KronJob` directory:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
@@ -61,7 +61,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 ### 4. Set Up Supabase
 
-- Run the SQL scripts in `/pingjobs` to set up tables and policies:
+- Run the SQL scripts in `/KronJob` to set up tables and policies:
   - `database-setup.sql`
   - `database-migration.sql`
   - `fix-rls-policies.sql` (for RLS)
@@ -88,7 +88,7 @@ Visit [http://localhost:3000](http://localhost:3000) in your browser.
 ## 📝 Project Structure
 
 ```
-pingjobs/
+KronJob/
   ├─ src/
   │   ├─ app/                # Next.js app pages
   │   ├─ components/         # UI components
@@ -131,6 +131,6 @@ MIT License
 
 ---
 
-**PingJobs — Automate your job search. Land your dream job.**
+**KronJob — Automate your job search. Land your dream job.**
 
 ---

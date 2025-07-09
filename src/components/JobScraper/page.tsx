@@ -245,13 +245,13 @@ export default function JobScraper() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto p-6">
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-2xl font-bold mb-4">Job Scraper</h2>
+        <div className="max-w-2xl w-full mx-auto p-4 sm:p-8 font-sans">
+            <div className="bg-white rounded-xl p-6 mb-8 shadow-none border border-gray-100">
+                <h2 className="text-2xl font-bold mb-4 text-gray-900">Job Scraper</h2>
 
                 <div className="mb-4">
-                    <p className="text-gray-600 mb-2">
-                        Current User: <span className="font-semibold">{currentUser || 'Not set'}</span>
+                    <p className="text-gray-700 mb-2">
+                        Current User: <span className="font-semibold text-gray-900">{currentUser || 'Not set'}</span>
                     </p>
 
                     {/* Manual User Input */}
@@ -259,13 +259,13 @@ export default function JobScraper() {
                         <p className="text-sm text-gray-600 mb-2">
                             If no user is detected, enter your email manually:
                         </p>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <input
                                 type="email"
                                 placeholder="Enter your email"
                                 value={manualUser}
                                 onChange={(e) => setManualUser(e.target.value)}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
                             />
                             <button
                                 onClick={() => {
@@ -274,21 +274,20 @@ export default function JobScraper() {
                                         setStatus(`✅ User set to: ${manualUser}`);
                                     }
                                 }}
-                                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm"
+                                className="px-4 py-2 bg-[#00E060] hover:bg-green-600 text-white rounded-lg text-base font-semibold transition-colors"
                             >
                                 Set User
                             </button>
                         </div>
                     </div>
 
-                    <div className="flex space-x-4">
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full mt-4">
                         <button
                             onClick={testProxy}
                             disabled={isTestingProxy}
-                            className={`px-4 py-3 rounded-lg font-semibold ${isTestingProxy
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-green-600 hover:bg-green-700'
-                                } text-white transition-colors`}
+                            className={`w-full sm:w-auto px-6 py-3 rounded-lg font-semibold text-lg ${isTestingProxy
+                                ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                                : 'bg-gray-700 hover:bg-gray-800 text-white'} transition-colors`}
                         >
                             {isTestingProxy ? '🧪 Testing...' : '🧪 Test Proxy'}
                         </button>
@@ -296,25 +295,24 @@ export default function JobScraper() {
                         <button
                             onClick={startScraping}
                             disabled={isScraping || !currentUser}
-                            className={`px-6 py-3 rounded-lg font-semibold ${isScraping || !currentUser
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-blue-600 hover:bg-blue-700'
-                                } text-white transition-colors`}
+                            className={`w-full sm:w-auto px-6 py-3 rounded-lg font-semibold text-lg ${isScraping || !currentUser
+                                ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                                : 'bg-[#00E060] hover:bg-green-600 text-white'} transition-colors flex items-center justify-center`}
                         >
-                            {isScraping ? '🔄 Scraping Jobs...' : '🚀 Start Job Scraping'}
+                            {isScraping ? '🔄 Scraping Jobs...' : <><span className="mr-2">▶</span>Start Scraping</>}
                         </button>
                     </div>
                 </div>
 
                 {status && (
-                    <div className="mb-4 p-3 rounded-lg bg-gray-100">
-                        <p className="text-sm">{status}</p>
+                    <div className="mb-4 p-3 rounded-lg bg-gray-100 text-gray-800 text-base">
+                        <p>{status}</p>
                     </div>
                 )}
 
                 {currentTask && (
-                    <div className="mb-4 p-4 border rounded-lg">
-                        <h3 className="font-semibold mb-2">Current Task</h3>
+                    <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                        <h3 className="font-semibold mb-2 text-gray-900">Current Task</h3>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <span className="font-medium">Task ID:</span> {currentTask.id}
@@ -339,14 +337,14 @@ export default function JobScraper() {
             </div>
 
             {/* Recent Tasks */}
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h3 className="text-xl font-bold mb-4">Recent Tasks</h3>
+            <div className="bg-white rounded-xl p-6 mb-8 shadow-none border border-gray-100">
+                <h3 className="text-xl font-bold mb-4 text-gray-900">Recent Tasks</h3>
                 <div className="space-y-3">
                     {tasks.map((task) => (
-                        <div key={task.id} className="p-3 border rounded-lg">
+                        <div key={task.id} className="p-3 border rounded-lg bg-gray-50">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="font-medium">{task.keywords}</p>
+                                    <p className="font-medium text-gray-900">{task.keywords}</p>
                                     <p className="text-sm text-gray-600">{task.location}</p>
                                 </div>
                                 <div className="text-right">
@@ -367,12 +365,12 @@ export default function JobScraper() {
             </div>
 
             {/* Jobs List */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold">Scraped Jobs ({jobs.length})</h3>
+            <div className="bg-white rounded-xl p-6 shadow-none border border-gray-100">
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+                    <h3 className="text-xl font-bold text-gray-900">Scraped Jobs ({jobs.length})</h3>
                     <button
                         onClick={loadJobs}
-                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm"
+                        className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg text-base font-semibold"
                     >
                         🔄 Refresh
                     </button>
@@ -380,15 +378,15 @@ export default function JobScraper() {
 
                 <div className="space-y-4">
                     {jobs.map((job) => (
-                        <div key={job.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start">
+                        <div key={job.id} className="p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                                 <div className="flex-1">
-                                    <h4 className="font-semibold text-lg mb-1">
+                                    <h4 className="font-semibold text-lg mb-1 text-green-700">
                                         <a
                                             href={job.job_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800"
+                                            className="hover:underline"
                                         >
                                             {job.title}
                                         </a>
@@ -401,7 +399,7 @@ export default function JobScraper() {
                                         </p>
                                     )}
                                 </div>
-                                <div className="text-right text-sm text-gray-500">
+                                <div className="text-right text-sm text-gray-500 min-w-[90px]">
                                     {new Date(job.created_at).toLocaleDateString()}
                                 </div>
                             </div>
@@ -422,7 +420,7 @@ export default function JobScraper() {
                             <li key={idx} className="mb-1">
                                 <span className="font-semibold">{job.title}</span> at <span>{job.company}</span> ({job.location})
                                 {job.job_url && (
-                                    <a href={job.job_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 underline">View</a>
+                                    <a href={job.job_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-green-600 underline">View</a>
                                 )}
                             </li>
                         ))}

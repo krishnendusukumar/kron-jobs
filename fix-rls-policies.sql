@@ -1,4 +1,4 @@
--- Fix RLS Policies for PingJobs
+-- Fix RLS Policies for KronJob
 -- Run this in your Supabase SQL Editor
 
 -- First, let's see what policies exist

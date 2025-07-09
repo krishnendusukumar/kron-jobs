@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# PingJobs Quick Start Script
-echo "🚀 PingJobs Quick Start"
+# KronJob Quick Start Script
+echo "🚀 KronJob Quick Start"
 echo "========================"
 
 # Check if Node.js is installed
