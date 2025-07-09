@@ -10,6 +10,7 @@ const KronJobsLanding = () => {
   const [location, setLocation] = useState('');
   const [minSalary, setMinSalary] = useState('');
   const [currentUser, setCurrentUser] = useState('krrishendusukumar@gmail.com');
+  const [showMobileNav, setShowMobileNav] = useState(false);
 
   const features = [
     {
@@ -86,26 +87,87 @@ const KronJobsLanding = () => {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Navbar */}
-      <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-[#00E060] rounded-lg flex items-center justify-center">
-                <Search className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-[#00E060]">KronJobs</span>
+      <nav className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-5xl px-4">
+        <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-full px-6 py-2 shadow-xl backdrop-blur-lg">
+          {/* Logo */}
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 bg-[#00E060] rounded-lg flex items-center justify-center shadow-[0_0_16px_2px_#00E06055]">
+              <Search className="w-5 h-5 text-white" />
             </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-300 hover:text-[#00E060] transition-colors">Features</a>
-              <a href="#how-it-works" className="text-gray-300 hover:text-[#00E060] transition-colors">How It Works</a>
-              <a href="#pricing" className="text-gray-300 hover:text-[#00E060] transition-colors">Pricing</a>
-              <button className="bg-[#00E060] hover:bg-green-600 px-4 py-2 rounded-lg transition-colors text-white font-semibold">
-                Get Started
-              </button>
-            </div>
+            <span className="text-2xl font-bold text-white tracking-tight">KronJobs</span>
+          </div>
+
+          {/* Desktop Nav Links */}
+          <div className="hidden md:flex items-center space-x-8">
+            <a href="#features" className="nav-link">Features</a>
+            <a href="#how-it-works" className="nav-link">How It Works</a>
+            <a href="#pricing" className="nav-link">Pricing</a>
+          </div>
+
+          {/* CTA Button */}
+          <div className="hidden md:block ml-6">
+            <button className="cta-btn">Get Started</button>
+          </div>
+
+          {/* Mobile Hamburger */}
+          <div className="md:hidden flex items-center">
+            <button onClick={() => setShowMobileNav((v) => !v)} aria-label="Open menu" className="focus:outline-none">
+              <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-white">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
           </div>
         </div>
+        {/* Mobile Nav Links */}
+        {showMobileNav && (
+          <div className="md:hidden mt-2 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-lg py-4 px-6 flex flex-col items-center space-y-4 animate-fade-in">
+            <a href="#features" className="nav-link text-lg" onClick={() => setShowMobileNav(false)}>Features</a>
+            <a href="#how-it-works" className="nav-link text-lg" onClick={() => setShowMobileNav(false)}>How It Works</a>
+            <a href="#pricing" className="nav-link text-lg" onClick={() => setShowMobileNav(false)}>Pricing</a>
+            <button className="cta-btn w-full mt-2" onClick={() => setShowMobileNav(false)}>Get Started</button>
+          </div>
+        )}
+        <style jsx>{`
+          .nav-link {
+            @apply text-gray-300 font-medium relative transition-colors duration-200;
+          }
+          .nav-link:after {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 0; right: 0; bottom: -2px;
+            height: 2px;
+            background: linear-gradient(90deg, #00E060 60%, #00B050 100%);
+            border-radius: 2px;
+            transform: scaleX(0);
+            transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+          }
+          .nav-link:hover {
+            color: #00E060;
+          }
+          .nav-link:hover:after {
+            transform: scaleX(1);
+          }
+          .cta-btn {
+            @apply bg-gradient-to-r from-[#00E060] to-[#00B050] text-white font-semibold px-6 py-2 rounded-full shadow-lg transition-all duration-200;
+            box-shadow: 0 2px 16px 0 #00E06033;
+            transform: scale(1);
+          }
+          .cta-btn:hover {
+            filter: brightness(1.1);
+            transform: scale(1.06);
+            box-shadow: 0 4px 24px 0 #00E06055;
+          }
+          @keyframes fade-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-fade-in {
+            animation: fade-in 0.3s ease;
+          }
+        `}</style>
       </nav>
+
 
       {/* Hero Section with Planetary Motion */}
       <section className="relative overflow-hidden bg-slate-900 min-h-screen flex items-center pt-8 lg:pt-0">
