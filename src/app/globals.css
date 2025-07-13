@@ -25,6 +25,50 @@ body {
   background-color: #181414;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Planetary Motion Animation Keyframes */
+@keyframes spinOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow-7 {
+  animation: spinOrbit 14s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+.animate-spin-slow-12-reverse {
+  animation: spinOrbit 20s cubic-bezier(0.42, 0, 0.58, 1) infinite reverse;
+}
+
+.animate-spin-slow-18 {
+  animation: spinOrbit 26s ease-in-out infinite;
+}
+
+.animate-spin-slow-24-reverse {
+  animation: spinOrbit 32s ease-in-out infinite reverse;
+}
+
+.animate-spin-slow-32 {
+  animation: spinOrbit 40s ease-in-out infinite;
+}
+
+/* Mobile overflow prevention */
+* {
+  box-sizing: border-box;
 }
 
 /* Link hover effects with bulge and color transition */
