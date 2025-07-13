@@ -35,6 +35,7 @@ interface Task {
 const PlanetaryMotion = () => {
   const { scrollY } = useScroll();
   const [isReducedMotion, setIsReducedMotion] = useState(false);
+  const [particles, setParticles] = useState<{ left: string; top: string }[]>([]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -43,6 +44,15 @@ const PlanetaryMotion = () => {
     const handleChange = (e: MediaQueryListEvent) => setIsReducedMotion(e.matches);
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Generate random positions only on the client
+  useEffect(() => {
+    const arr = Array.from({ length: 40 }, () => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+    }));
+    setParticles(arr);
   }, []);
 
   const y = useTransform(scrollY, [0, 1000], [0, isReducedMotion ? -20 : -100]);
@@ -83,7 +93,7 @@ const PlanetaryMotion = () => {
       </div>
 
       {/* Floating Particles */}
-      {[...Array(40)].map((_, i) => (
+      {particles.map((pos, i) => (
         <motion.div
           key={i}
           className={`absolute rounded-full ${i % 4 === 0 ? 'w-2 h-2 bg-cyan-400/50' :
@@ -102,8 +112,8 @@ const PlanetaryMotion = () => {
             delay: Math.random() * 8,
           }}
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
+            left: pos.left,
+            top: pos.top,
           }}
         />
       ))}
@@ -201,7 +211,7 @@ const FloatingBadges = () => {
 // Hero Section Component
 const HeroSection = () => {
   return (
-    <section className="relative z-10 min-h-screen flex items-center justify-center snap-start">
+    <section className="relative z-10 min-h-screen flex items-center justify-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
@@ -280,6 +290,26 @@ const HeroSection = () => {
   );
 };
 
+// Understand the Need Section
+const UnderstandTheNeed = () => (
+  <section className="relative z-10 py-16 bg-gradient-to-b from-black/80 to-black/60">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Why KronJobs?</h2>
+      <p className="text-lg text-gray-300 mb-4">Tired of missing out on great jobs or spending hours searching LinkedIn? Manual job hunting is slow, repetitive, and easy to miss new opportunities. KronJobs automates your search, scans LinkedIn for you, and delivers the best jobs straight to your inbox—no login required, no premium needed.</p>
+      <div className="flex flex-col sm:flex-row gap-6 justify-center mt-8">
+        <div className="flex-1 bg-white/5 rounded-2xl p-6 shadow-lg border border-cyan-500/10">
+          <h3 className="text-xl font-semibold text-cyan-400 mb-2">No More FOMO</h3>
+          <p className="text-gray-300 text-base">Never miss a new job posting. Get instant alerts as soon as jobs matching your criteria appear.</p>
+        </div>
+        <div className="flex-1 bg-white/5 rounded-2xl p-6 shadow-lg border border-purple-500/10">
+          <h3 className="text-xl font-semibold text-purple-400 mb-2">Save Hours Weekly</h3>
+          <p className="text-gray-300 text-base">Let automation do the heavy lifting. Focus on applying, not searching.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
 // Job Scan Form Component
 const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
   formData: FormData;
@@ -292,21 +322,13 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-
-    if (!formData.jobTitle.trim()) {
-      newErrors.jobTitle = 'Job title is required';
-    }
-
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
-    }
-
+    if (!formData.jobTitle.trim()) newErrors.jobTitle = 'Job title is required';
+    if (!formData.location.trim()) newErrors.location = 'Location is required';
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -317,14 +339,13 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
       ...formData,
       [name]: value
     });
-
-    // Clear error when user starts typing
     if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  // Only validate and call parent handleSubmit
+  const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
       handleSubmit(e);
@@ -334,7 +355,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
   };
 
   return (
-    <section className="relative z-10 py-20 snap-start">
+    <section className="relative z-10 py-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           className="bg-white/10 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 p-8 sm:p-12 shadow-2xl"
@@ -353,7 +374,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
             Launch Your Job Search
           </motion.h2>
 
-          <form onSubmit={handleFormSubmit} className="space-y-6">
+          <form onSubmit={onFormSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {[
                 { name: 'jobTitle', icon: Target, placeholder: 'e.g., Frontend Developer', label: 'Job Title' },
@@ -475,7 +496,7 @@ const ScrapingTasks = ({ tasks }: { tasks: Task[] }) => {
   };
 
   return (
-    <section className="relative z-10 py-20 snap-start">
+    <section className="relative z-10 py-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.h2
           className="text-4xl font-bold text-white mb-16 text-center"
@@ -565,7 +586,7 @@ const FeatureCards = () => {
   ];
 
   return (
-    <section id="features" className="relative z-10 py-20 snap-start">
+    <section id="features" className="relative z-10 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           className="text-center mb-20"
@@ -609,24 +630,21 @@ const HowItWorksSteps = () => {
       step: "1",
       title: "Enter Your Criteria",
       description: "Specify job title, location, and preferences through our simple form.",
-      icon: Target
     },
     {
       step: "2",
       title: "We Start Scraping",
       description: "Our system continuously monitors LinkedIn for new job postings that match your criteria.",
-      icon: Orbit
     },
     {
       step: "3",
       title: "Get Instant Alerts",
       description: "Receive email notifications whenever new opportunities are found.",
-      icon: Satellite
     }
   ];
 
   return (
-    <section id="how-it-works" className="relative z-10 py-20 snap-start">
+    <section id="how-it-works" className="relative z-10 py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           className="text-center mb-20"
@@ -650,10 +668,7 @@ const HowItWorksSteps = () => {
               viewport={{ once: true }}
             >
               <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-8 text-white text-2xl font-bold shadow-lg">
-                {step.step}
-              </div>
-              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <step.icon className="w-8 h-8 text-blue-400" />
+                <span className="text-2xl font-bold text-white">{step.step}</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">{step.title}</h3>
               <p className="text-gray-300">{step.description}</p>
@@ -668,68 +683,139 @@ const HowItWorksSteps = () => {
 // Footer Component
 const Footer = () => {
   return (
-    <footer className="relative z-10 bg-gradient-to-b from-[#10131a]/90 to-[#0a0c12] backdrop-blur-2xl pt-1 pb-12 md:pb-16 snap-start overflow-hidden">
-      {/* Top Glow Border */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-500/60 via-blue-500/40 to-purple-500/60 blur-sm opacity-80" />
-      {/* Blurred Planet/Blob */}
-      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-purple-500/20 rounded-full blur-3xl opacity-40 pointer-events-none" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8 py-12 md:py-16">
-          {/* Logo & Description */}
-          <div className="col-span-1 md:col-span-2 flex flex-col justify-between">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg border border-cyan-400/30 backdrop-blur-xl">
-                <Search className="w-7 h-7 text-white" />
-              </div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent tracking-tight">KronJobs</span>
-            </div>
-            <p className="text-gray-300 mb-6 max-w-md text-base md:text-lg">
-              Automated job search made simple. Find your next opportunity without the hassle.
-            </p>
-            <div className="flex space-x-4 mt-2">
-              {[Github, Twitter, Linkedin].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  className="text-gray-400 hover:text-cyan-400 transition-colors p-2 hover:bg-cyan-500/10 rounded-lg"
-                  aria-label="Social link"
-                >
-                  <Icon className="w-5 h-5" />
-                </a>
-              ))}
-            </div>
+    <footer className="w-full rounded-2xl py-6 px-4 md:px-8 mt-16 mb-4 shadow-lg">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Left: Logo and Name */}
+        <div className="flex items-center space-x-3">
+          <div className="w-7 h-7 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <Search className="w-4 h-4 text-white" />
           </div>
-
-          {/* Product Links */}
-          <div>
-            <h4 className="font-semibold text-white mb-4 tracking-wide">Product</h4>
-            <ul className="space-y-2 text-gray-300">
-              {['Features', 'Pricing', 'API'].map((item) => (
-                <li key={item}>
-                  <a href="#" className="hover:text-cyan-400 transition-colors font-medium">{item}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Support Links */}
-          <div>
-            <h4 className="font-semibold text-white mb-4 tracking-wide">Support</h4>
-            <ul className="space-y-2 text-gray-300">
-              {['Privacy', 'Terms', 'Contact'].map((item) => (
-                <li key={item}>
-                  <a href="#" className="hover:text-cyan-400 transition-colors font-medium">{item}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <span className="text-lg font-bold text-white tracking-tight">KronJobs</span>
         </div>
-        {/* Copyright */}
-        <div className="border-t border-cyan-500/10 mt-8 pt-8 text-center text-gray-500 text-sm">
-          <p>&copy; 2024 KronJobs. All rights reserved.</p>
+        {/* Right: Navigation Links */}
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <a href="#" className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors">Privacy Policy</a>
+          <a href="#" className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors">Terms of Use</a>
+          <a href="#" className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors">Contact us</a>
+          <a href="#" className="rounded-full bg-[#232329] text-white hover:bg-cyan-600 hover:text-white px-4 py-2 text-sm font-semibold transition-colors">Get started</a>
         </div>
       </div>
     </footer>
+  );
+};
+
+// Jobs Dashboard Component
+const JobsDashboard = ({ email }: { email: string }) => {
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchJobs = async () => {
+    if (!email) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/start-scraping?userId=${encodeURIComponent(email)}`);
+      if (!res.ok) throw new Error('Failed to fetch jobs');
+      const data = await res.json();
+      setTasks(data.tasks || []);
+    } catch (err: any) {
+      setError(err.message || 'Error fetching jobs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+    // eslint-disable-next-line
+  }, [email]);
+
+  const getStatusBadge = (status: string) => {
+    let base = 'px-3 py-1 rounded-full text-xs font-bold mr-2';
+    if (status === 'done') return `${base} bg-emerald-500/20 text-emerald-300 border border-emerald-500/30`;
+    if (status === 'running') return `${base} bg-blue-500/20 text-blue-300 border border-blue-500/30 animate-pulse`;
+    if (status === 'queued') return `${base} bg-yellow-500/20 text-yellow-300 border border-yellow-500/30`;
+    return `${base} bg-gray-500/20 text-gray-300 border border-gray-500/30`;
+  };
+
+  return (
+    <section className="relative z-10 py-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Your Scraped Jobs</h2>
+          <button
+            onClick={fetchJobs}
+            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all"
+          >
+            Refresh
+          </button>
+        </div>
+        {loading ? (
+          <div className="text-center text-gray-400 py-12">Loading jobs...</div>
+        ) : error ? (
+          <div className="text-center text-red-400 py-12">{error}</div>
+        ) : tasks && tasks.length > 0 ? (
+          <div className="space-y-10">
+            {tasks.map((task, idx) => (
+              <motion.div
+                key={task.id || idx}
+                className="bg-white/10 backdrop-blur-xl border border-cyan-500/10 rounded-2xl p-6 shadow-lg hover:bg-white/15 transition-all duration-300"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: idx * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="font-semibold text-white text-lg mr-2">{task.title || 'Job Scan'}</span>
+                    <span className="text-sm text-gray-400">{task.location}</span>
+                  </div>
+                  <span className={getStatusBadge(task.status)}>{task.status.charAt(0).toUpperCase() + task.status.slice(1)}</span>
+                </div>
+                {task.jobs && task.jobs.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {task.jobs.map((job: any, jdx: number) => (
+                      <motion.div
+                        key={job.id || jdx}
+                        className="bg-white/10 border border-cyan-500/10 rounded-2xl p-4 shadow flex flex-col justify-between hover:bg-white/20 transition-all duration-300"
+                        whileHover={{ scale: 1.03 }}
+                      >
+                        <div>
+                          <div className="font-semibold text-white truncate">{job.title || job.job_title || 'Job Title'}</div>
+                          <div className="text-cyan-300 text-sm">{job.company || job.company_name || 'Company'}</div>
+                          <div className="text-gray-400 text-sm mb-2">{job.location || 'Location'}</div>
+                        </div>
+                        <div className="mt-2 flex justify-between items-center">
+                          <a
+                            href={job.url || job.link || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 text-xs font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all"
+                          >
+                            View Job
+                          </a>
+                          {job.posted_at && (
+                            <span className="text-xs text-gray-400 ml-2">{job.posted_at}</span>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400 py-8">No jobs found for this scan.</div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-400 py-12">
+            <div className="text-5xl mb-4">🔍</div>
+            <div>No jobs found yet. Start a scan or refresh to see results!</div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 
@@ -741,46 +827,81 @@ const KronJobsLanding = () => {
     email: '',
     proxy: ''
   });
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: 'Frontend Developer', location: 'San Francisco', status: 'done', progress: 100, jobs: 23 },
-    { id: 2, title: 'Product Manager', location: 'Remote', status: 'running', progress: 65, jobs: 12 },
-    { id: 3, title: 'Data Scientist', location: 'New York', status: 'queued', progress: 0, jobs: 0 }
-  ]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
+  const tasksRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Scroll to form
+  const scrollToForm = () => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+  // Scroll to tasks/results
+  const scrollToTasks = () => {
+    tasksRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Fetch tasks for user
+  const fetchTasks = async (email: string) => {
+    const res = await fetch(`/api/start-scraping?userId=${encodeURIComponent(email)}`);
+    if (res.ok) {
+      const data = await res.json();
+      setTasks(data.tasks || []);
+    }
+  };
+
+  // Enhanced handleSubmit
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    try {
+      // 1. Save preferences
+      const prefRes = await fetch('/api/submit-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: formData.jobTitle,
+          keywords: '', // Add keywords if you have them
+          location: formData.location,
+          minSalary: '', // Add minSalary if you have it
+          notifyMethod: 'email',
+          experience: '',
+          phone: '',
+          email: formData.email,
+        }),
+      });
+      if (!prefRes.ok) throw new Error('Failed to save preferences');
 
-    // Simulate API call
-    setTimeout(() => {
-      const newTask: Task = {
-        id: tasks.length + 1,
-        title: formData.jobTitle,
-        location: formData.location,
-        status: 'queued',
-        progress: 0,
-        jobs: 0
-      };
-      setTasks([...tasks, newTask]);
+      // 2. Start scraping
+      const scrapeRes = await fetch('/api/start-scraping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: formData.email }),
+      });
+      const scrapeData = await scrapeRes.json();
+      if (!scrapeRes.ok) throw new Error(scrapeData.error || 'Failed to start scraping');
+
+      // 3. Fetch and show tasks
+      await fetchTasks(formData.email);
       setFormData({ jobTitle: '', location: '', email: '', proxy: '' });
+      setTimeout(scrollToTasks, 500); // Scroll to results
+    } catch (err) {
+      // Optionally show error UI
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden snap-y snap-mandatory max-w-full w-full">
+    <div className="min-h-screen bg-black text-white overflow-x-hidden max-w-full w-full">
       {/* Animated Background */}
       <PlanetaryMotion />
-
       {/* Animated Blobs */}
       <AnimatedBlob className="w-64 h-64 md:w-96 md:h-96 bg-blue-500/20 top-1/4 left-1/4 max-w-[90vw] max-h-[90vh]" />
       <AnimatedBlob className="w-56 h-56 md:w-80 md:h-80 bg-purple-500/20 top-3/4 right-1/4 max-w-[90vw] max-h-[90vh]" />
       <AnimatedBlob className="w-48 h-48 md:w-72 md:h-72 bg-emerald-500/20 bottom-1/4 left-1/3 max-w-[90vw] max-h-[90vh]" />
-
       {/* Floating Badges */}
-
       {/* Navigation */}
       <nav className="relative z-50 bg-black/30 backdrop-blur-2xl border-b border-white/20 sticky top-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -799,7 +920,6 @@ const KronJobsLanding = () => {
                 KronJobs
               </span>
             </motion.div>
-
             {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-8">
               {['Features', 'How it Works', 'Contact'].map((item, i) => (
@@ -816,7 +936,6 @@ const KronJobsLanding = () => {
                 </motion.a>
               ))}
             </div>
-
             {/* Mobile Menu Button */}
             <motion.button
               className="md:hidden p-2 rounded-lg border border-cyan-500/30 hover:border-cyan-400/50 backdrop-blur-sm hover:bg-cyan-500/10 transition-all duration-300"
@@ -830,9 +949,6 @@ const KronJobsLanding = () => {
                 <span className={`w-4 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></span>
               </div>
             </motion.button>
-
-
-
             {/* CTA Button */}
             <motion.button
               className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
@@ -841,13 +957,15 @@ const KronJobsLanding = () => {
               transition={{ duration: 0.5 }}
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
+              onClick={scrollToForm}
             >
               Start Free
             </motion.button>
           </div>
-
           {/* Mobile Menu Overlay */}
-          <FloatingBadges />
+          <div className="top-24 inset-x-0 z-40 hidden lg:flex justify-center space-x-4 pointer-events-none">
+            <FloatingBadges />
+          </div>
           <AnimatePresence>
             {mobileMenuOpen && (
               <motion.div
@@ -877,15 +995,15 @@ const KronJobsLanding = () => {
           </AnimatePresence>
         </div>
       </nav>
-
       {/* Main Content */}
       <HeroSection />
-      <JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} />
-      <ScrapingTasks tasks={tasks} />
+      <UnderstandTheNeed />
+      <div ref={formRef}><JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} /></div>
+      <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
+      <JobsDashboard email={formData.email} />
       <FeatureCards />
       <HowItWorksSteps />
       <Footer />
-
       {/* Mobile Sticky CTA */}
       <motion.div
         className="fixed bottom-4 left-4 right-4 z-50 md:hidden"
@@ -897,6 +1015,7 @@ const KronJobsLanding = () => {
           className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-6 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          onClick={scrollToForm}
         >
           <div className="flex items-center justify-center space-x-2">
             <Rocket className="w-5 h-5" />
