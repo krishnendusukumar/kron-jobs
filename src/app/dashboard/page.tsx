@@ -20,13 +20,22 @@ const PAGE_SIZE = 10;
 
 // Floating Particles Component
 const FloatingParticles = () => {
-    const particles = Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        left: `${Math.random() * 100}%`,
-        top: `${Math.random() * 100}%`,
-        delay: Math.random() * 8,
-        duration: Math.random() * 20 + 15,
-    }));
+    const [particles, setParticles] = useState<{ id: number; left: string; top: string; delay: number; duration: number }[]>([]);
+
+    useEffect(() => {
+        // Only generate particles on the client side
+        const particlesData = Array.from({ length: 20 }, (_, i) => ({
+            id: i,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            delay: Math.random() * 8,
+            duration: Math.random() * 20 + 15,
+        }));
+        setParticles(particlesData);
+    }, []);
+
+    // Don't render anything on server side
+    if (particles.length === 0) return null;
 
     return (
         <div className="fixed inset-0 pointer-events-none z-0">
@@ -169,10 +178,15 @@ function UsersSection({ onSelectUser, selectedUser }: { onSelectUser: (user: any
         try {
             const res = await fetch(`/api/users?page=${page}&limit=${PAGE_SIZE}&search=${encodeURIComponent(search)}`);
             const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to fetch users');
-            setUsers(data.users);
-            setTotalPages(data.pagination.totalPages || 1);
+            console.log('Users API response:', data);
+            if (data.success) {
+                setUsers(data.users);
+                setTotalPages(data.pagination.totalPages || 1);
+            } else {
+                throw new Error(data.error || 'Failed to fetch users');
+            }
         } catch (err: any) {
+            console.error('Error fetching users:', err);
             setError(err.message || 'Error fetching users');
         } finally {
             setLoading(false);
@@ -345,7 +359,7 @@ function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-cyan-200 mb-1">Location</label>
-                            <input name="location" value={form.location} onChange={handleChange} required={!form.remote} disabled={form.remote} className="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-60" placeholder="e.g. Remote, Berlin" />
+                            <input name="location" value={form.location} onChange={handleChange} required={!form.remote} disabled={form.remote} className="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-60" placeholder="e.g. Berlin" />
                         </div>
                         <div className="flex items-center gap-2 sm:col-span-2">
                             <input type="checkbox" name="remote" checked={form.remote} onChange={handleChange} id="remote-checkbox" className="accent-cyan-500 w-4 h-4" />
@@ -377,6 +391,382 @@ function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
     );
 }
 
+function TasksSection({ selectedUser }: { selectedUser: any }) {
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchTasks = async () => {
+        if (!selectedUser?.email) {
+            setError('Please select a user first');
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`/api/start-scraping?userId=${encodeURIComponent(selectedUser.email)}`);
+            const data = await res.json();
+            console.log('Tasks API response:', data);
+            if (data.tasks) {
+                setTasks(data.tasks);
+            } else {
+                setTasks([]);
+            }
+        } catch (err: any) {
+            console.error('Error fetching tasks:', err);
+            setError(err.message || 'Error fetching tasks');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedUser?.email) {
+            fetchTasks();
+        } else {
+            setTasks([]);
+        }
+    }, [selectedUser?.email]);
+
+    const getStatusBadge = (status: string) => {
+        const baseClasses = 'px-3 py-1 rounded-full text-xs font-bold';
+        switch (status) {
+            case 'completed':
+                return `${baseClasses} bg-emerald-500/20 text-emerald-300 border border-emerald-500/30`;
+            case 'processing':
+                return `${baseClasses} bg-blue-500/20 text-blue-300 border border-blue-500/30 animate-pulse`;
+            case 'pending':
+                return `${baseClasses} bg-yellow-500/20 text-yellow-300 border border-yellow-500/30`;
+            case 'failed':
+                return `${baseClasses} bg-red-500/20 text-red-300 border border-red-500/30`;
+            default:
+                return `${baseClasses} bg-gray-500/20 text-gray-300 border border-gray-500/30`;
+        }
+    };
+
+    const startNewTask = async () => {
+        if (!selectedUser?.email) {
+            toast.error('Please select a user first');
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await fetch('/api/start-scraping', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: selectedUser.email })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to start task');
+            toast.success('Task started successfully!');
+            fetchTasks(); // Refresh tasks
+        } catch (err: any) {
+            toast.error(err.message || 'Error starting task');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <motion.div
+            key="tasks"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.3 }}
+        >
+            <motion.h2
+                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                Tasks
+            </motion.h2>
+            <div className="rounded-3xl bg-white/5 backdrop-blur-xl border border-cyan-400/20 p-8 min-h-[400px] shadow-2xl">
+                {!selectedUser ? (
+                    <div className="text-center text-gray-400 py-12">
+                        <ListChecks className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
+                        <p className="text-lg">Please select a user to view their tasks</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+                            <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-cyan-200 mb-1">Tasks for {selectedUser.email}</h3>
+                                <p className="text-sm text-gray-400">{selectedUser.job_title} • {selectedUser.location}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <GradientButton onClick={startNewTask} icon={PlusCircle} size="sm" disabled={loading}>
+                                    Start New Task
+                                </GradientButton>
+                                <GradientButton onClick={fetchTasks} icon={RefreshCw} size="sm" variant="outline" disabled={loading}>
+                                    Refresh
+                                </GradientButton>
+                            </div>
+                        </div>
+                        {loading ? (
+                            <div className="text-center text-gray-400 py-12">Loading tasks...</div>
+                        ) : error ? (
+                            <div className="text-center text-red-400 py-12">{error}</div>
+                        ) : tasks.length === 0 ? (
+                            <div className="text-center text-gray-400 py-12">
+                                <ListChecks className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
+                                <p className="text-lg">No tasks found for this user</p>
+                                <p className="text-sm mt-2">Click "Start New Task" to begin scraping</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {tasks.map((task, index) => (
+                                    <motion.div
+                                        key={task.id || index}
+                                        className="bg-white/10 border border-cyan-400/20 rounded-2xl p-6"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                                    >
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h4 className="font-semibold text-white">Task {task.id?.split('_')[1] || index + 1}</h4>
+                                                <p className="text-sm text-gray-400">{task.keywords} • {task.location}</p>
+                                            </div>
+                                            <span className={getStatusBadge(task.status)}>
+                                                {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-gray-400">Created:</span>
+                                                <span className="text-white">{new Date(task.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                            {task.completed_at && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-400">Completed:</span>
+                                                    <span className="text-white">{new Date(task.completed_at).toLocaleDateString()}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-gray-400">Jobs Found:</span>
+                                                <span className="text-cyan-300 font-semibold">{task.results?.length || 0}</span>
+                                            </div>
+                                            {task.error && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-gray-400">Error:</span>
+                                                    <span className="text-red-400 text-xs">{task.error}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        </motion.div>
+    );
+}
+
+function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
+    const [jobs, setJobs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    const fetchJobs = async () => {
+        if (!selectedUser?.email) {
+            setError('Please select a user first');
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            const params = new URLSearchParams({
+                userId: selectedUser.email,
+                page: page.toString(),
+                limit: '12'
+            });
+            if (statusFilter !== 'all') {
+                params.append('status', statusFilter);
+            }
+            const res = await fetch(`/api/jobs?${params}`);
+            const data = await res.json();
+            console.log('Jobs API response:', data);
+            if (data.success) {
+                setJobs(data.jobs);
+                setTotalPages(data.pagination.totalPages || 1);
+            } else {
+                throw new Error(data.error || 'Failed to fetch jobs');
+            }
+        } catch (err: any) {
+            console.error('Error fetching jobs:', err);
+            setError(err.message || 'Error fetching jobs');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedUser?.email) {
+            fetchJobs();
+        } else {
+            setJobs([]);
+        }
+    }, [selectedUser?.email, page, statusFilter]);
+
+    const updateJobStatus = async (jobId: number, action: string) => {
+        try {
+            const res = await fetch(`/api/jobs?jobId=${jobId}&action=${action}`, {
+                method: 'PUT'
+            });
+            const data = await res.json();
+            console.log('Update job response:', data);
+            if (data.success) {
+                toast.success(`Job marked as ${action}`);
+                fetchJobs(); // Refresh jobs
+            } else {
+                throw new Error(data.error || 'Failed to update job');
+            }
+        } catch (err: any) {
+            console.error('Error updating job:', err);
+            toast.error(err.message || 'Error updating job');
+        }
+    };
+
+    return (
+        <motion.div
+            key="jobs"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.3 }}
+        >
+            <motion.h2
+                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                Scraped Jobs
+            </motion.h2>
+            <div className="rounded-3xl bg-white/5 backdrop-blur-xl border border-cyan-400/20 p-8 min-h-[400px] shadow-2xl">
+                {!selectedUser ? (
+                    <div className="text-center text-gray-400 py-12">
+                        <Brain className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
+                        <p className="text-lg">Please select a user to view their scraped jobs</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+                            <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-cyan-200 mb-1">Jobs for {selectedUser.email}</h3>
+                                <p className="text-sm text-gray-400">{selectedUser.job_title} • {selectedUser.location}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                                    className="px-4 py-2 rounded-xl bg-black/30 border border-cyan-400/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                                >
+                                    <option value="all">All Jobs</option>
+                                    <option value="applied">Applied</option>
+                                    <option value="hidden">Hidden</option>
+                                    <option value="interview">Interview</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                                <GradientButton onClick={fetchJobs} icon={RefreshCw} size="sm" variant="outline" disabled={loading}>
+                                    Refresh
+                                </GradientButton>
+                            </div>
+                        </div>
+                        {loading ? (
+                            <div className="text-center text-gray-400 py-12">Loading jobs...</div>
+                        ) : error ? (
+                            <div className="text-center text-red-400 py-12">{error}</div>
+                        ) : jobs.length === 0 ? (
+                            <div className="text-center text-gray-400 py-12">
+                                <Brain className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
+                                <p className="text-lg">No jobs found for this user</p>
+                                <p className="text-sm mt-2">Start a task to scrape jobs</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                    {jobs.map((job, index) => (
+                                        <motion.div
+                                            key={job.id}
+                                            className="bg-white/10 border border-cyan-400/20 rounded-2xl p-4 hover:bg-white/15 transition-all"
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                                        >
+                                            <div className="mb-3">
+                                                <h4 className="font-semibold text-white text-sm line-clamp-2 mb-1">{job.title}</h4>
+                                                <p className="text-cyan-300 text-xs mb-1">{job.company}</p>
+                                                <p className="text-gray-400 text-xs">{job.location}</p>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <a
+                                                    href={job.job_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-3 py-1 rounded-full hover:from-cyan-400 hover:to-blue-400 transition-all"
+                                                >
+                                                    View Job
+                                                </a>
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => updateJobStatus(job.id, 'applied')}
+                                                        className={`text-xs px-2 py-1 rounded ${job.applied === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-300'}`}
+                                                    >
+                                                        Applied
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateJobStatus(job.id, 'hidden')}
+                                                        className={`text-xs px-2 py-1 rounded ${job.hidden === 1 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300'}`}
+                                                    >
+                                                        Hide
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center gap-2">
+                                        <GradientButton size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Prev</GradientButton>
+                                        <span className="px-4 py-2 text-cyan-200">Page {page} of {totalPages}</span>
+                                        <GradientButton size="sm" variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</GradientButton>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </>
+                )}
+            </div>
+        </motion.div>
+    );
+}
+
+function TopBar({ selectedUser, onRefresh, onLogout }: { selectedUser: any, onRefresh: () => void, onLogout: () => void }) {
+    return (
+        <div className="sticky top-0 z-30 w-full bg-black/30 backdrop-blur-2xl border-b border-white/10 flex items-center justify-between px-6 py-4 mb-4 shadow-lg">
+            <div className="flex items-center gap-4">
+                <span className="text-cyan-300 font-mono text-lg">
+                    {selectedUser ? selectedUser.email : 'No user selected'}
+                </span>
+            </div>
+            <div className="flex gap-2">
+                <GradientButton size="sm" variant="outline" onClick={onRefresh}>Refresh</GradientButton>
+                <GradientButton size="sm" variant="primary" onClick={onLogout}>Logout</GradientButton>
+            </div>
+        </div>
+    );
+}
+
 function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated }: { selected: string, selectedUser: any, onSelectUser: (user: any) => void, onUserCreated: () => void }) {
     return (
         <section className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 overflow-y-auto">
@@ -389,52 +779,10 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated }: 
                         <CreateUserSection onUserCreated={onUserCreated} />
                     )}
                     {selected === 'tasks' && (
-                        <motion.div
-                            key="tasks"
-                            initial={{ opacity: 0, y: 24 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -24 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            <motion.h2
-                                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5 }}
-                            >
-                                Tasks
-                            </motion.h2>
-                            <div className="rounded-3xl bg-white/5 backdrop-blur-xl border border-cyan-400/20 p-8 min-h-[400px] shadow-2xl">
-                                <div className="text-center text-gray-400 py-12">
-                                    <ListChecks className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
-                                    <p className="text-lg">Task management coming soon...</p>
-                                </div>
-                            </div>
-                        </motion.div>
+                        <TasksSection selectedUser={selectedUser} />
                     )}
                     {selected === 'jobs' && (
-                        <motion.div
-                            key="jobs"
-                            initial={{ opacity: 0, y: 24 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -24 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            <motion.h2
-                                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5 }}
-                            >
-                                Scraped Jobs
-                            </motion.h2>
-                            <div className="rounded-3xl bg-white/5 backdrop-blur-xl border border-cyan-400/20 p-8 min-h-[400px] shadow-2xl">
-                                <div className="text-center text-gray-400 py-12">
-                                    <Brain className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
-                                    <p className="text-lg">Job results coming soon...</p>
-                                </div>
-                            </div>
-                        </motion.div>
+                        <ScrapedJobsSection selectedUser={selectedUser} />
                     )}
                 </AnimatePresence>
             </div>
@@ -464,6 +812,12 @@ export default function DashboardPage() {
         setUsersRefreshKey(k => k + 1);
     };
 
+    const handleRefresh = () => setUsersRefreshKey(k => k + 1);
+    const handleLogout = () => {
+        // Implement logout logic here (e.g., clear session, redirect)
+        window.location.href = '/';
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#0a182e] via-[#0e223a] to-[#1a2a3d] text-white overflow-x-hidden">
             <Toaster position="top-right" />
@@ -482,13 +836,16 @@ export default function DashboardPage() {
                     isMobileOpen={isMobileOpen}
                     setIsMobileOpen={setIsMobileOpen}
                 />
-                <DashboardMain
-                    selected={selected}
-                    selectedUser={selectedUser}
-                    onSelectUser={setSelectedUser}
-                    onUserCreated={handleUserCreated}
-                    key={usersRefreshKey}
-                />
+                <div className="flex-1 flex flex-col">
+                    <TopBar selectedUser={selectedUser} onRefresh={handleRefresh} onLogout={handleLogout} />
+                    <DashboardMain
+                        selected={selected}
+                        selectedUser={selectedUser}
+                        onSelectUser={setSelectedUser}
+                        onUserCreated={handleUserCreated}
+                        key={usersRefreshKey}
+                    />
+                </div>
             </div>
 
             {/* Mobile Menu Button */}

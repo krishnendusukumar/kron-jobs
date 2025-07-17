@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
 
         const { data: jobs, error, count } = await query;
 
+        console.log('Jobs API query result:', { jobs, error, count, userId, status });
+
         if (error) {
             return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }

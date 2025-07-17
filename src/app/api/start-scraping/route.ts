@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const taskId = searchParams.get('taskId');
-        
+
         const userId = searchParams.get('userId');
 
         if (taskId) {
@@ -74,6 +74,7 @@ export async function GET(request: Request) {
         if (userId) {
             // Get all tasks for user
             const tasks = await jobProcessor.getUserTasks(userId);
+            console.log('Start-scraping API tasks result:', { tasks, userId });
             return NextResponse.json({ tasks });
         }
 

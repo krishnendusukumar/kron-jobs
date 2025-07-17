@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
 
         const { data: users, error, count } = await query;
 
+        console.log('Users API query result:', { users, error, count });
+
         if (error) {
             return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }
