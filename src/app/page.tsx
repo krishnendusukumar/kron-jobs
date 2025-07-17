@@ -867,7 +867,6 @@ const KronJobsLanding = () => {
           minSalary: '', // Add minSalary if you have it
           notifyMethod: 'email',
           experience: '',
-          phone: '',
           email: formData.email,
         }),
       });

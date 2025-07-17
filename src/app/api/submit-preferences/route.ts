@@ -16,18 +16,23 @@ export async function POST(req: NextRequest) {
             email,
         } = data;
 
-        const { error } = await supabase.from('job_preferences').insert([
-            {
-                job_title: jobTitle,
-                keywords,
-                location,
-                min_salary: parseInt(minSalary),
-                notify_method: notifyMethod,
-                experience,
-                phone,
-                email,
-            },
-        ]);
+        // Prepare the data object, handling optional fields
+        const insertData: any = {
+            job_title: jobTitle,
+            keywords: keywords || '',
+            location,
+            min_salary: minSalary ? parseInt(minSalary) : null,
+            notify_method: notifyMethod || 'Mail',
+            experience: experience || '',
+            email,
+        };
+
+        // Only include phone if it's provided and not empty
+        if (phone && phone.trim() !== '') {
+            insertData.phone = phone.trim();
+        }
+
+        const { error } = await supabase.from('job_preferences').insert([insertData]);
 
         if (error) {
             return NextResponse.json({ success: false, error: error.message }, { status: 500 });

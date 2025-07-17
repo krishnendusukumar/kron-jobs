@@ -64,17 +64,17 @@ export default function PreferencesForm() {
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <input type="text" name="jobTitle" placeholder="Job Title" className="w-1/2 p-2 rounded-md" value={formData.jobTitle} onChange={handleChange} />
+            <input type="text" name="jobTitle" placeholder="Job Title" className="w-1/2 p-2 rounded-md" value={formData.jobTitle} onChange={handleChange} required />
             <input type="text" name="keywords" placeholder="Keywords" className="w-1/2 p-2 rounded-md" value={formData.keywords} onChange={handleChange} />
-            <input type="text" name="location" placeholder="Location" className="w-1/2 p-2 rounded-md" value={formData.location} onChange={handleChange} />
+            <input type="text" name="location" placeholder="Location" className="w-1/2 p-2 rounded-md" value={formData.location} onChange={handleChange} required />
             <input type="number" name="min_salary" placeholder="Minimum Salary (in USD)" className="w-1/2 p-2 rounded-md" value={formData.min_salary} onChange={handleChange} />
             <select name="notifyMethod" value={formData.notifyMethod} className="w-1/2 p-2 rounded-md" onChange={handleChange}>
                 <option value="Mail" className="w-1/2 p-2 rounded-md" >Mail</option>
                 <option value="WhatsApp" className="w-1/2 p-2 rounded-md" >WhatsApp</option>
             </select>
             <input type="text" name="experience" placeholder="Experience (in years)" className="w-1/2 p-2 rounded-md" value={formData.experience} onChange={handleChange} />
-            <input type="text" name="phone" placeholder="Phone with country code" className="w-1/2 p-2 rounded-md" value={formData.phone} onChange={handleChange} />
-            <input type="email" name="email" placeholder="Email" className="w-1/2 p-2 rounded-md" value={formData.email} onChange={handleChange} />
+            <input type="text" name="phone" placeholder="Phone with country code (optional)" className="w-1/2 p-2 rounded-md" value={formData.phone} onChange={handleChange} />
+            <input type="email" name="email" placeholder="Email" className="w-1/2 p-2 rounded-md" value={formData.email} onChange={handleChange} required />
 
             <button className="w-1/2 p-2 rounded-md bg-[#7974ea] text-white cursor-pointer" type="submit">Submit</button>
 
