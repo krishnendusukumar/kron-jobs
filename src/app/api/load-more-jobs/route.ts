@@ -100,7 +100,7 @@ function removeDuplicates(jobs: JobCard[]): JobCard[] {
     });
 }
 
-export async function saveJobsToDatabase(userId: string, jobs: JobCard[]) {
+async function saveJobsToDatabase(userId: string, jobs: JobCard[]) {
     if (!jobs.length) {
         console.log("⛔ No jobs to insert.");
         return 0;
