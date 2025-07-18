@@ -25,7 +25,6 @@ interface JobCard {
 
 interface ScrapingConfig {
     headers: Record<string, string>;
-    proxies?: Record<string, string>;
     retries: number;
     delay: number;
     pagesToScrape: number;
@@ -33,25 +32,20 @@ interface ScrapingConfig {
     daysToScrape: number;
 }
 
-const PROXY_CONFIG = {
-    host: process.env.PROXY_HOST || '198.23.239.134',
-    port: parseInt(process.env.PROXY_PORT || '6540'),
-    auth: {
-        username: process.env.PROXY_USERNAME || 'feybfcyg',
-        password: process.env.PROXY_PASSWORD || 'ga2r3k8zna40'
-    }
-};
-
 const defaultConfig: ScrapingConfig = {
     headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive'
-    },
-    proxies: {
-        http: `http://${PROXY_CONFIG.auth.username}:${PROXY_CONFIG.auth.password}@${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`,
-        https: `http://${PROXY_CONFIG.auth.username}:${PROXY_CONFIG.auth.password}@${PROXY_CONFIG.host}:${PROXY_CONFIG.port}`
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0',
+        'Referer': 'https://www.linkedin.com/jobs/',
+        'Origin': 'https://www.linkedin.com'
     },
     retries: 3,
     delay: 2000,
@@ -69,16 +63,10 @@ async function getWithRetry(url: string, config: ScrapingConfig, retries: number
                 headers: config.headers,
                 timeout: 15000
             };
-            if (config.proxies) axiosConfig.proxy = config.proxies;
             const response = await axios.get(url, axiosConfig);
             if (response.status === 200) return response.data;
         } catch (error: any) {
-            if (i === retries - 1 && config.proxies && error.code === 'ECONNREFUSED') {
-                try {
-                    const response = await axios.get(url, { headers: config.headers, timeout: 10000 });
-                    if (response.status === 200) return response.data;
-                } catch (_) { }
-            }
+            console.log(`Attempt ${i + 1} failed for ${url}:`, error.message);
             if (i < retries - 1) await randomDelay(config.delay, config.delay + 1000);
         }
     }
@@ -136,10 +124,11 @@ export async function scrapeLinkedInJobs(params: JobSearchParams, userConfig?: P
     const location = encodeURIComponent(params.location);
     const f_WT = params.f_WT || '';
     const timespan = params.timespan || 'r86400';
+    const start = params.start || 0;
 
     for (let round = 0; round < config.rounds; round++) {
-        const start = 0;
-        const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${keywords}&location=${location}&f_TPR=${timespan}&f_WT=${f_WT}&start=${start}`;
+        const currentStart = start + (round * 25); // LinkedIn returns 25 jobs per request
+        const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${keywords}&location=${location}&f_TPR=${timespan}&f_WT=${f_WT}&start=${currentStart}`;
         const html = await getWithRetry(url, config);
         if (html) allJobs.push(...parseJobCards(html));
     }
@@ -189,14 +178,10 @@ export async function testProxyConnection(): Promise<boolean> {
     try {
         const testUrl = 'https://httpbin.org/ip';
         const response = await axios.get(testUrl, {
-            proxy: {
-                host: PROXY_CONFIG.host,
-                port: PROXY_CONFIG.port,
-                auth: PROXY_CONFIG.auth
-            },
+            headers: defaultConfig.headers,
             timeout: 10000
         });
-        console.log('Proxy IP:', response.data.origin);
+        console.log('Direct connection IP:', response.data.origin);
         return true;
     } catch (_) {
         return false;

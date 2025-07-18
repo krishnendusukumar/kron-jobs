@@ -570,10 +570,13 @@ function TasksSection({ selectedUser }: { selectedUser: any }) {
 function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [hasMoreJobs, setHasMoreJobs] = useState(true);
+    const [currentStart, setCurrentStart] = useState(5); // Start with 5 as requested
 
     const fetchJobs = async () => {
         if (!selectedUser?.email) {
@@ -597,6 +600,9 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
             if (data.success) {
                 setJobs(data.jobs);
                 setTotalPages(data.pagination.totalPages || 1);
+                // Don't reset currentStart when fetching existing jobs
+                // Only reset when user changes or component mounts
+                setHasMoreJobs(true);
             } else {
                 throw new Error(data.error || 'Failed to fetch jobs');
             }
@@ -610,11 +616,69 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
 
     useEffect(() => {
         if (selectedUser?.email) {
+            // Reset currentStart when user changes or component mounts
+            setCurrentStart(5); // Start with 5 as requested
+            setHasMoreJobs(true);
             fetchJobs();
         } else {
             setJobs([]);
+            // Reset load more state when no user is selected
+            setCurrentStart(5); // Start with 5 as requested
+            setHasMoreJobs(true);
         }
     }, [selectedUser?.email, page, statusFilter]);
+
+    const loadMoreJobs = async () => {
+        if (!selectedUser?.email || loadingMore) return;
+
+        setLoadingMore(true);
+        try {
+            const payload = {
+                userId: selectedUser.email,
+                keywords: selectedUser.job_title || 'developer',
+                location: selectedUser.location || 'Remote',
+                start: currentStart,
+                f_WT: selectedUser.location?.toLowerCase().includes('remote') ? '2' : '',
+                timespan: 'r86400'
+            };
+
+            console.log('🔄 Loading more jobs with payload:', payload);
+
+            const res = await fetch('/api/load-more-jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            console.log('📄 Load more jobs response:', data);
+
+            if (data.success) {
+                if (data.jobs && data.jobs.length > 0) {
+                    // Add new jobs to existing list
+                    setJobs(prevJobs => [...prevJobs, ...data.jobs]);
+                    setCurrentStart(data.pagination.nextStart);
+                    setHasMoreJobs(data.pagination.hasMore);
+
+                    if (data.pagination.newJobsCount > 0) {
+                        toast.success(`Loaded ${data.pagination.newJobsCount} new jobs! (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                    } else {
+                        toast.success(`No new jobs found in this range (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                    }
+                } else {
+                    setHasMoreJobs(false);
+                    toast.success('No more jobs available');
+                }
+            } else {
+                throw new Error(data.error || 'Failed to load more jobs');
+            }
+        } catch (err: any) {
+            console.error('❌ Error loading more jobs:', err);
+            toast.error(err.message || 'Error loading more jobs');
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const updateJobStatus = async (jobId: number, action: string) => {
         try {
@@ -662,7 +726,17 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
                             <div className="flex-1">
                                 <h3 className="text-lg font-semibold text-cyan-200 mb-1">Jobs for {selectedUser.email}</h3>
-                                <p className="text-sm text-gray-400">{selectedUser.job_title} • {selectedUser.location}</p>
+                                <p className="text-sm text-gray-400">
+                                    {selectedUser.job_title} • {selectedUser.location}
+                                    {jobs.length > 0 && (
+                                        <span className="ml-2 text-cyan-300">
+                                            • {jobs.length} jobs loaded
+                                            {hasMoreJobs && (
+                                                <span className="text-gray-400"> • Load {Math.floor((currentStart - 5) / 5) + 1}/10 (start: {currentStart})</span>
+                                            )}
+                                        </span>
+                                    )}
+                                </p>
                             </div>
                             <div className="flex gap-2">
                                 <select
@@ -678,6 +752,15 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                 </select>
                                 <GradientButton onClick={fetchJobs} icon={RefreshCw} size="sm" variant="outline" disabled={loading}>
                                     Refresh
+                                </GradientButton>
+                                <GradientButton
+                                    onClick={loadMoreJobs}
+                                    icon={loadingMore ? RefreshCw : PlusCircle}
+                                    size="sm"
+                                    variant={hasMoreJobs ? "primary" : "outline"}
+                                    disabled={loadingMore || !hasMoreJobs}
+                                >
+                                    {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
                                 </GradientButton>
                             </div>
                         </div>
@@ -734,9 +817,36 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                         </motion.div>
                                     ))}
                                 </div>
+
+                                {/* Load More Jobs Section */}
+                                {jobs.length > 0 && (
+                                    <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="text-lg font-semibold text-cyan-200 mb-1">Load More Jobs</h4>
+                                                <p className="text-sm text-gray-400">
+                                                    {hasMoreJobs
+                                                        ? `Currently loaded ${jobs.length} jobs. Load ${Math.floor((currentStart - 5) / 5) + 1}/10 - Next request will start from position ${currentStart}.`
+                                                        : `All 10 loads completed (${jobs.length} total jobs).`
+                                                    }
+                                                </p>
+                                            </div>
+                                            <GradientButton
+                                                onClick={loadMoreJobs}
+                                                icon={loadingMore ? RefreshCw : PlusCircle}
+                                                size="md"
+                                                variant={hasMoreJobs ? "primary" : "outline"}
+                                                disabled={loadingMore || !hasMoreJobs}
+                                            >
+                                                {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
+                                            </GradientButton>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Pagination */}
                                 {totalPages > 1 && (
-                                    <div className="flex justify-center gap-2">
+                                    <div className="flex justify-center gap-2 mt-6">
                                         <GradientButton size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Prev</GradientButton>
                                         <span className="px-4 py-2 text-cyan-200">Page {page} of {totalPages}</span>
                                         <GradientButton size="sm" variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</GradientButton>
