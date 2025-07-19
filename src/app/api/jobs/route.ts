@@ -1,54 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { JobService } from '@/lib/job-service';
 
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const userId = searchParams.get('userId');
-        const page = parseInt(searchParams.get('page') || '1');
+        const keywords = searchParams.get('keywords') || undefined;
+        const location = searchParams.get('location') || undefined;
+        const applied = searchParams.get('applied') === 'true';
+        const hidden = searchParams.get('hidden') === 'true';
+        const interview = searchParams.get('interview') === 'true';
+        const rejected = searchParams.get('rejected') === 'true';
         const limit = parseInt(searchParams.get('limit') || '20');
-        const status = searchParams.get('status'); // applied, hidden, interview, rejected
+        const page = parseInt(searchParams.get('page') || '1');
+        const offset = (page - 1) * limit; // Convert page to offset
+        const sortBy = searchParams.get('sortBy') as any || 'created_at';
+        const sortOrder = searchParams.get('sortOrder') as 'asc' | 'desc' || 'desc';
 
         if (!userId) {
-            return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
+            return NextResponse.json({
+                success: false,
+                error: 'userId is required'
+            }, { status: 400 });
         }
 
-        let query = supabase
-            .from('jobs')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+        const filters = {
+            userId,
+            keywords,
+            location,
+            applied: applied || undefined,
+            hidden: hidden || undefined,
+            interview: interview || undefined,
+            rejected: rejected || undefined,
+            limit,
+            offset,
+            sortBy,
+            sortOrder,
+        };
 
-        // Add status filter if provided
-        if (status && ['applied', 'hidden', 'interview', 'rejected'].includes(status)) {
-            query = query.eq(status, 1);
-        }
+        const result = await JobService.getJobs(filters);
 
-        // Add pagination
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
-        query = query.range(from, to);
-
-        const { data: jobs, error, count } = await query;
-
-        console.log('Jobs API query result:', { jobs, error, count, userId, status });
-
-        if (error) {
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-        }
+        const totalPages = Math.ceil(result.total / limit);
 
         return NextResponse.json({
             success: true,
-            jobs,
+            jobs: result.jobs,
             pagination: {
-                page,
+                total: result.total,
+                totalPages,
+                currentPage: page,
                 limit,
-                total: count || 0,
-                totalPages: Math.ceil((count || 0) / limit)
-            }
+                offset,
+                hasMore: page < totalPages,
+            },
         });
-    } catch (err: any) {
-        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+
+    } catch (error: any) {
+        console.error('❌ Error fetching jobs:', error);
+        return NextResponse.json({
+            success: false,
+            error: error.message || 'Internal server error'
+        }, { status: 500 });
     }
 }
 
@@ -56,30 +68,34 @@ export async function PUT(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const jobId = searchParams.get('jobId');
+        const userId = searchParams.get('userId');
         const action = searchParams.get('action'); // applied, hidden, interview, rejected
 
-        if (!jobId || !action) {
-            return NextResponse.json({ success: false, error: 'Job ID and action are required' }, { status: 400 });
+        if (!jobId || !userId || !action) {
+            return NextResponse.json({
+                success: false,
+                error: 'Job ID, User ID, and action are required'
+            }, { status: 400 });
         }
 
         if (!['applied', 'hidden', 'interview', 'rejected'].includes(action)) {
-            return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
+            return NextResponse.json({
+                success: false,
+                error: 'Invalid action'
+            }, { status: 400 });
         }
 
-        const updateData: any = {};
-        updateData[action] = 1;
+        const updates: any = {};
+        updates[action] = true;
 
-        const { error } = await supabase
-            .from('jobs')
-            .update(updateData)
-            .eq('id', jobId);
-
-        if (error) {
-            return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-        }
+        await JobService.updateJobStatus(jobId, userId, updates);
 
         return NextResponse.json({ success: true });
-    } catch (err: any) {
-        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    } catch (error: any) {
+        console.error('❌ Error updating job status:', error);
+        return NextResponse.json({
+            success: false,
+            error: error.message || 'Internal server error'
+        }, { status: 500 });
     }
 } 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { saveJobsToDatabase } from '@/lib/job-database';
 
 interface JobCard {
     title: string;
@@ -100,39 +101,7 @@ function removeDuplicates(jobs: JobCard[]): JobCard[] {
     });
 }
 
-async function saveJobsToDatabase(userId: string, jobs: JobCard[]) {
-    if (!jobs.length) {
-        console.log("⛔ No jobs to insert.");
-        return 0;
-    }
 
-    const jobsToInsert = jobs.map((job) => ({
-        ...job,
-        user_id: userId,
-        applied: job.applied ?? 0,
-        hidden: job.hidden ?? 0,
-        interview: job.interview ?? 0,
-        rejected: job.rejected ?? 0,
-    }));
-
-    console.log(`💾 Attempting to upsert ${jobsToInsert.length} jobs for user: ${userId}`);
-    console.log("📋 Sample job to save:", jobsToInsert[0]);
-
-    const { data, error } = await supabase
-        .from("jobs")
-        .upsert(jobsToInsert, {
-            onConflict: "job_url,user_id", // adjust to your Supabase constraint
-        })
-        .select(); // useful to verify what's inserted
-
-    if (error) {
-        console.error("❌ Supabase upsert error:", error);
-        return 0;
-    }
-
-    console.log(`✅ Database operation completed. Jobs inserted/updated: ${data?.length}`);
-    return data?.length || 0;
-}
 
 
 export async function POST(req: NextRequest) {
@@ -148,76 +117,111 @@ export async function POST(req: NextRequest) {
 
         console.log(`🔄 Loading more jobs for user: ${userId}, start: ${start}`);
 
-        // Build LinkedIn API URL
-        const encodedKeywords = encodeURIComponent(keywords);
-        const encodedLocation = encodeURIComponent(location);
-        const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=${timespan}&f_WT=${f_WT}&start=${start}`;
+        // Try the new queue system first, fall back to direct scraping if it fails
+        try {
+            const { JobService } = await import('@/lib/job-service');
 
-        console.log(`📡 Fetching from LinkedIn: ${url}`);
+            const result = await JobService.requestScraping({
+                userId,
+                keywords,
+                location,
+                f_WT,
+                timespan,
+                start,
+            });
 
-        // Fetch jobs from LinkedIn
-        const html = await getWithRetry(url);
+            // Check if we should allow more loads (up to 10 times: start=5,10,15,20,25,30,35,40,45,50)
+            const maxStart = 50; // 10 loads * 5 increment = 50
+            const hasMore = start < maxStart;
 
-        if (!html) {
-            return NextResponse.json({
-                success: false,
-                error: 'Failed to fetch jobs from LinkedIn'
-            }, { status: 500 });
-        }
-
-        // Parse jobs from HTML
-        const scrapedJobs = parseJobCards(html);
-        console.log(`📋 Scraped ${scrapedJobs.length} jobs from LinkedIn`);
-
-        if (scrapedJobs.length === 0) {
             return NextResponse.json({
                 success: true,
-                jobs: [],
-                message: 'No more jobs available',
-                hasMore: false
+                jobId: result.jobId,
+                status: result.status,
+                pagination: {
+                    start,
+                    nextStart: start + 5, // Increment by 5 as requested
+                    hasMore,
+                    loadCount: Math.floor((start - 5) / 5) + 1, // Current load number (1-10)
+                    maxLoads: 10
+                },
+                message: `Scraping job queued successfully. Jobs will be available shortly. (Load ${Math.floor((start - 5) / 5) + 1}/10)`
+            });
+
+        } catch (queueError: any) {
+            console.warn('⚠️ Queue system failed, falling back to direct scraping:', queueError.message);
+
+            // Fall back to the original direct scraping method
+            const encodedKeywords = encodeURIComponent(keywords);
+            const encodedLocation = encodeURIComponent(location);
+            const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&f_TPR=${timespan}&f_WT=${f_WT}&start=${start}`;
+
+            console.log(`📡 Fetching from LinkedIn: ${url}`);
+
+            // Fetch jobs from LinkedIn
+            const html = await getWithRetry(url);
+
+            if (!html) {
+                return NextResponse.json({
+                    success: false,
+                    error: 'Failed to fetch jobs from LinkedIn'
+                }, { status: 500 });
+            }
+
+            // Parse jobs from HTML
+            const scrapedJobs = parseJobCards(html);
+            console.log(`📋 Scraped ${scrapedJobs.length} jobs from LinkedIn`);
+
+            if (scrapedJobs.length === 0) {
+                return NextResponse.json({
+                    success: true,
+                    jobs: [],
+                    message: 'No more jobs available',
+                    hasMore: false
+                });
+            }
+
+            // Remove duplicates
+            const uniqueJobs = removeDuplicates(scrapedJobs);
+            console.log(`🔍 After deduplication: ${uniqueJobs.length} unique jobs`);
+
+            // Save to database with better error handling
+            let savedJobsCount = 0;
+            let newJobsCount = 0;
+            try {
+                savedJobsCount = await saveJobsToDatabase(userId, uniqueJobs);
+                console.log(`💾 Processed ${savedJobsCount} jobs from database`);
+
+                // For now, assume all jobs are new since we can't easily track creation time
+                newJobsCount = savedJobsCount;
+
+            } catch (dbError: any) {
+                console.error('❌ Database error:', dbError);
+                // Return the jobs even if database save fails
+                newJobsCount = uniqueJobs.length;
+            }
+
+            // Check if we should allow more loads (up to 10 times: start=5,10,15,20,25,30,35,40,45,50)
+            const maxStart = 50; // 10 loads * 5 increment = 50
+            const hasMore = start < maxStart;
+
+            return NextResponse.json({
+                success: true,
+                jobs: uniqueJobs,
+                pagination: {
+                    start,
+                    nextStart: start + 5, // Increment by 5 as requested
+                    hasMore,
+                    jobsLoaded: uniqueJobs.length,
+                    newJobsCount,
+                    loadCount: Math.floor((start - 5) / 5) + 1, // Current load number (1-10)
+                    maxLoads: 10
+                },
+                message: newJobsCount > 0
+                    ? `Successfully loaded ${newJobsCount} new jobs (Load ${Math.floor((start - 5) / 5) + 1}/10)`
+                    : `No new jobs found in this range (Load ${Math.floor((start - 5) / 5) + 1}/10)`
             });
         }
-
-        // Remove duplicates
-        const uniqueJobs = removeDuplicates(scrapedJobs);
-        console.log(`🔍 After deduplication: ${uniqueJobs.length} unique jobs`);
-
-        // Save to database with better error handling
-        let savedJobsCount = 0;
-        let newJobsCount = 0;
-        try {
-            savedJobsCount = await saveJobsToDatabase(userId, uniqueJobs);
-            console.log(`💾 Processed ${savedJobsCount} jobs from database`);
-
-            // For now, assume all jobs are new since we can't easily track creation time
-            newJobsCount = savedJobsCount;
-
-        } catch (dbError: any) {
-            console.error('❌ Database error:', dbError);
-            // Return the jobs even if database save fails
-            newJobsCount = uniqueJobs.length;
-        }
-
-        // Check if we should allow more loads (up to 10 times: start=5,10,15,20,25,30,35,40,45,50)
-        const maxStart = 50; // 10 loads * 5 increment = 50
-        const hasMore = start < maxStart;
-
-        return NextResponse.json({
-            success: true,
-            jobs: uniqueJobs,
-            pagination: {
-                start,
-                nextStart: start + 5, // Increment by 5 as requested
-                hasMore,
-                jobsLoaded: uniqueJobs.length,
-                newJobsCount,
-                loadCount: Math.floor((start - 5) / 5) + 1, // Current load number (1-10)
-                maxLoads: 10
-            },
-            message: newJobsCount > 0
-                ? `Successfully loaded ${newJobsCount} new jobs (Load ${Math.floor((start - 5) / 5) + 1}/10)`
-                : `No new jobs found in this range (Load ${Math.floor((start - 5) / 5) + 1}/10)`
-        });
 
     } catch (error: any) {
         console.error('❌ Error in load-more-jobs:', error);

@@ -126,33 +126,51 @@ export async function scrapeLinkedInJobs(params: JobSearchParams, userConfig?: P
     const timespan = params.timespan || 'r86400';
     const start = params.start || 0;
 
+    console.log(`🔍 Scraping LinkedIn jobs: ${keywords} in ${location}, start: ${start}`);
+
     for (let round = 0; round < config.rounds; round++) {
         const currentStart = start + (round * 25); // LinkedIn returns 25 jobs per request
         const url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${keywords}&location=${location}&f_TPR=${timespan}&f_WT=${f_WT}&start=${currentStart}`;
+
+        console.log(`📡 Fetching from: ${url}`);
         const html = await getWithRetry(url, config);
-        if (html) allJobs.push(...parseJobCards(html));
+
+        if (html) {
+            const jobs = parseJobCards(html);
+            console.log(`📋 Found ${jobs.length} jobs from this request`);
+            allJobs.push(...jobs);
+        } else {
+            console.log(`❌ Failed to fetch jobs from start position ${currentStart}`);
+        }
     }
+
+    console.log(`📊 Total jobs scraped: ${allJobs.length}`);
 
     const uniqueJobs = removeDuplicates(allJobs);
-    const filteredJobs = filterJobs(uniqueJobs, {
-        titleExclude: ['frontend', 'front end', 'game', 'ui', 'ux'],
-        titleInclude: ['developer', 'engineer', 'programmer', 'software'],
-        companyExclude: ['ClickJobs.io', 'Upwork', 'Fiverr'],
-        descWords: ['agriculture', 'farm', 'manufacturing', 'bilingual', 'chemistry']
+    console.log(`🔍 After deduplication: ${uniqueJobs.length} unique jobs`);
+
+    // Apply basic filtering (no description filtering since we're not fetching descriptions)
+    const filteredJobs = uniqueJobs.filter(job => {
+        const title = job.title.toLowerCase();
+        const company = job.company.toLowerCase();
+
+        // Basic title filtering
+        if (['frontend', 'front end', 'game', 'ui', 'ux'].some(word => title.includes(word))) return false;
+        if (!['developer', 'engineer', 'programmer', 'software', 'sre', 'devops'].some(word => title.includes(word))) return false;
+
+        // Basic company filtering
+        if (['ClickJobs.io', 'Upwork', 'Fiverr'].some(word => company.includes(word.toLowerCase()))) return false;
+
+        return true;
     });
 
-    const jobsWithDescriptions: JobCard[] = [];
-    for (let i = 0; i < filteredJobs.length; i++) {
-        const job = filteredJobs[i];
-        if (!job.job_url) continue;
-        const descriptionHtml = await getWithRetry(job.job_url, config);
-        if (descriptionHtml) {
-            job.job_description = parseJobDescription(descriptionHtml);
-            jobsWithDescriptions.push(job);
-        }
-        if (i < filteredJobs.length - 1) await randomDelay(config.delay, config.delay + 1000);
-    }
-    return jobsWithDescriptions;
+    console.log(`✅ Final filtered jobs: ${filteredJobs.length}`);
+
+    // Return jobs without descriptions (much faster and no 999 errors)
+    return filteredJobs.map(job => ({
+        ...job,
+        job_description: `Job at ${job.company} - ${job.title}` // Simple placeholder
+    }));
 }
 
 export async function saveJobsToDatabase(jobs: JobCard[], userId?: string) {

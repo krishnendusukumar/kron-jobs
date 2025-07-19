@@ -594,10 +594,21 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
             if (statusFilter !== 'all') {
                 params.append('status', statusFilter);
             }
+
+            console.log('🔄 Fetching jobs with params:', params.toString());
             const res = await fetch(`/api/jobs?${params}`);
             const data = await res.json();
-            console.log('Jobs API response:', data);
+            console.log('📄 Jobs API response:', data);
+
             if (data.success) {
+                console.log(`✅ Fetched ${data.jobs.length} jobs for user ${selectedUser.email}`);
+                console.log('📋 Sample jobs:', data.jobs.slice(0, 3).map((job: any) => ({
+                    id: job.id,
+                    title: job.title,
+                    company: job.company,
+                    created_at: job.created_at
+                })));
+
                 setJobs(data.jobs);
                 setTotalPages(data.pagination.totalPages || 1);
                 // Don't reset currentStart when fetching existing jobs
@@ -607,7 +618,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                 throw new Error(data.error || 'Failed to fetch jobs');
             }
         } catch (err: any) {
-            console.error('Error fetching jobs:', err);
+            console.error('❌ Error fetching jobs:', err);
             setError(err.message || 'Error fetching jobs');
         } finally {
             setLoading(false);
@@ -654,20 +665,57 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
             console.log('📄 Load more jobs response:', data);
 
             if (data.success) {
-                if (data.jobs && data.jobs.length > 0) {
-                    // Add new jobs to existing list
-                    setJobs(prevJobs => [...prevJobs, ...data.jobs]);
-                    setCurrentStart(data.pagination.nextStart);
-                    setHasMoreJobs(data.pagination.hasMore);
+                // Update pagination state
+                setCurrentStart(data.pagination.nextStart);
+                setHasMoreJobs(data.pagination.hasMore);
+
+                // If job was queued, wait for it to complete
+                if (data.jobId && data.status === 'pending') {
+                    console.log('⏳ Job queued, waiting for completion...');
+                    toast.success('Job scraping in progress... Please wait.');
+
+                    // Poll for job completion
+                    let attempts = 0;
+                    const maxAttempts = 30; // 30 seconds max
+
+                    while (attempts < maxAttempts) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                        attempts++;
+
+                        try {
+                            // Check job status
+                            const statusRes = await fetch(`/api/scraping-status?jobId=${data.jobId}&userId=${selectedUser.email}`);
+                            const statusData = await statusRes.json();
+
+                            console.log(`📊 Job status check ${attempts}:`, statusData);
+
+                            if (statusData.status === 'completed') {
+                                console.log('✅ Job completed, refreshing jobs...');
+                                await fetchJobs();
+                                toast.success(`Successfully loaded new jobs! (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                                return;
+                            } else if (statusData.status === 'failed') {
+                                throw new Error(statusData.error || 'Job processing failed');
+                            }
+                        } catch (statusError) {
+                            console.log('⚠️ Status check failed, continuing...');
+                        }
+                    }
+
+                    // If we reach here, job took too long
+                    console.log('⏰ Job taking too long, refreshing anyway...');
+                    await fetchJobs();
+                    toast.success(`Jobs should be available now (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                } else {
+                    // Direct scraping completed, refresh immediately
+                    console.log('🔄 Direct scraping completed, refreshing jobs...');
+                    await fetchJobs();
 
                     if (data.pagination.newJobsCount > 0) {
                         toast.success(`Loaded ${data.pagination.newJobsCount} new jobs! (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
                     } else {
                         toast.success(`No new jobs found in this range (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
                     }
-                } else {
-                    setHasMoreJobs(false);
-                    toast.success('No more jobs available');
                 }
             } else {
                 throw new Error(data.error || 'Failed to load more jobs');
