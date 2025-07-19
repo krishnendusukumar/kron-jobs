@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { supabase } from './supabase';
 import * as cheerio from 'cheerio';
+import { makeProxyRequest, proxyManager } from './proxy-config';
 
 interface JobSearchParams {
     keywords: string;
@@ -59,15 +60,22 @@ const randomDelay = (min: number, max: number) => new Promise(resolve => setTime
 async function getWithRetry(url: string, config: ScrapingConfig, retries: number = 3): Promise<string | null> {
     for (let i = 0; i < retries; i++) {
         try {
-            const axiosConfig: any = {
-                headers: config.headers,
-                timeout: 15000
-            };
-            const response = await axios.get(url, axiosConfig);
-            if (response.status === 200) return response.data;
+            console.log(`🌐 Attempt ${i + 1}/${retries} - Fetching via proxy: ${url}`);
+
+            const response = await makeProxyRequest({
+                method: 'GET',
+                url: url,
+                timeout: 15000,
+                headers: config.headers
+            });
+
+            if (response) return response;
         } catch (error: any) {
-            console.log(`Attempt ${i + 1} failed for ${url}:`, error.message);
-            if (i < retries - 1) await randomDelay(config.delay, config.delay + 1000);
+            console.log(`❌ Attempt ${i + 1} failed for ${url}:`, error.message);
+            if (i < retries - 1) {
+                console.log(`⏳ Waiting ${config.delay}ms before retry...`);
+                await randomDelay(config.delay, config.delay + 1000);
+            }
         }
     }
     return null;
@@ -194,14 +202,21 @@ export async function saveJobsToDatabase(jobs: JobCard[], userId?: string) {
 
 export async function testProxyConnection(): Promise<boolean> {
     try {
-        const testUrl = 'https://httpbin.org/ip';
-        const response = await axios.get(testUrl, {
-            headers: defaultConfig.headers,
-            timeout: 10000
-        });
-        console.log('Direct connection IP:', response.data.origin);
-        return true;
-    } catch (_) {
+        console.log('🧪 Testing Bright Data proxy connection...');
+        const isWorking = await proxyManager.testConnection();
+
+        if (isWorking) {
+            const stats = proxyManager.getStats();
+            console.log('📊 Proxy stats:', {
+                totalRequests: stats.totalRequests,
+                failedRequests: stats.failedRequests,
+                estimatedCost: `$${proxyManager.getEstimatedCost().toFixed(4)}`
+            });
+        }
+
+        return isWorking;
+    } catch (error) {
+        console.error('❌ Proxy test failed:', error);
         return false;
     }
 }

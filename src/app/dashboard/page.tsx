@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Users, PlusCircle, ListChecks, Brain, Search, Menu, X, ArrowDown, Rocket, Eye, RefreshCw, ExternalLink } from 'lucide-react';
+import { User, Users, PlusCircle, ListChecks, Brain, Search, Menu, X, ArrowDown, Rocket, Eye, RefreshCw, ExternalLink, Wifi } from 'lucide-react';
 import Navbar from '@/components/shared/Navbar';
 import Footer from '@/components/shared/Footer';
 import GradientButton from '@/components/shared/GradientButton';
 import AnimatedBlob from '@/components/shared/AnimatedBlob';
+import ProxyTest from '@/components/ProxyTest/page';
 import { toast, Toaster } from 'react-hot-toast';
 
 const SIDEBAR_ITEMS = [
@@ -14,6 +15,7 @@ const SIDEBAR_ITEMS = [
     { key: 'create', label: 'Create User', icon: PlusCircle },
     { key: 'tasks', label: 'Tasks', icon: ListChecks },
     { key: 'jobs', label: 'Scraped Jobs', icon: Brain },
+    { key: 'proxy', label: 'Proxy Status', icon: Wifi },
 ];
 
 const PAGE_SIZE = 10;
@@ -941,6 +943,9 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated }: 
                     )}
                     {selected === 'jobs' && (
                         <ScrapedJobsSection selectedUser={selectedUser} />
+                    )}
+                    {selected === 'proxy' && (
+                        <ProxyTest />
                     )}
                 </AnimatePresence>
             </div>
