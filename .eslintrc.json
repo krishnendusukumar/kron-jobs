@@ -1,17 +1,6 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "@typescript-eslint/recommended"
-  ],
-  "rules": {
-    "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/no-require-imports": "warn",
-    "@typescript-eslint/no-unused-expressions": "warn"
-  },
-  "ignorePatterns": [
-    "*.js",
-    "node_modules/",
-    ".next/",
-    "out/"
+    "next/typescript"
   ]
 }

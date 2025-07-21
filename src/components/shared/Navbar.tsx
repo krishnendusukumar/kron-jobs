@@ -3,12 +3,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Rocket } from 'lucide-react';
+import UserProfileDropdown from './UserProfileDropdown';
+import { UserProfile } from '@/lib/user-profile-service';
 
 interface NavbarProps {
     currentPage?: 'home' | 'dashboard';
+    userProfile?: UserProfile | null;
 }
 
-export default function Navbar({ currentPage = 'home' }: NavbarProps) {
+export default function Navbar({ currentPage = 'home', userProfile }: NavbarProps) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
@@ -60,9 +63,16 @@ export default function Navbar({ currentPage = 'home' }: NavbarProps) {
                         </motion.a>
                     </div>
 
+                    {/* User Profile Dropdown (only on dashboard) */}
+                    {currentPage === 'dashboard' && (
+                        <div className="ml-4 flex items-center">
+                            <UserProfileDropdown userProfile={userProfile || null} />
+                        </div>
+                    )}
+
                     {/* Mobile Menu Button */}
                     <motion.button
-                        className="md:hidden p-2 rounded-lg border border-cyan-500/30 hover:border-cyan-400/50 backdrop-blur-sm hover:bg-cyan-500/10 transition-all duration-300"
+                        className="md:hidden p-2 rounded-lg border border-cyan-500/30 hover:border-cyan-400/50 backdrop-blur-sm hover:bg-cyan-500/10 transition-all duration-300 cursor-pointer"
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -75,19 +85,21 @@ export default function Navbar({ currentPage = 'home' }: NavbarProps) {
                     </motion.button>
 
                     {/* CTA Button */}
-                    <motion.button
-                        className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5 }}
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                    >
-                        <div className="flex items-center space-x-2">
-                            <Rocket className="w-4 h-4" />
-                            <span>Start Free</span>
-                        </div>
-                    </motion.button>
+                    {currentPage !== 'dashboard' && (
+                        <motion.button
+                            className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.5 }}
+                            whileHover={{ scale: 1.05, y: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                        >
+                            <div className="flex items-center space-x-2">
+                                <Rocket className="w-4 h-4" />
+                                <span>Start Free</span>
+                            </div>
+                        </motion.button>
+                    )}
                 </div>
 
                 {/* Mobile Menu Overlay */}

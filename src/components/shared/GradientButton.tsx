@@ -39,7 +39,7 @@ export default function GradientButton({
         outline: "border-2 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-400/70"
     };
 
-    const classes = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`;
+    const classes = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} cursor-pointer ${className}`;
 
     return (
         <motion.button

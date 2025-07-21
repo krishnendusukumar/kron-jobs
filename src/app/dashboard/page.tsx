@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User, Users, PlusCircle, ListChecks, Brain, Search, Menu, X, ArrowDown, Rocket, Eye, RefreshCw, ExternalLink, Wifi, Clock, CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { useClerk } from '@clerk/nextjs';
 import Navbar from '@/components/shared/Navbar';
 import Footer from '@/components/shared/Footer';
 import GradientButton from '@/components/shared/GradientButton';
@@ -15,16 +16,17 @@ import { UserProfileService, UserProfile } from '../../lib/user-profile-service'
 import PricingSection from '../../components/PricingSection/page';
 import CronManager from '../../components/CronManager/page';
 
-const SIDEBAR_ITEMS = [
+type SidebarItem = {
+    key: string;
+    label: string;
+    icon: any;
+    adminOnly?: boolean;
+};
+
+const SIDEBAR_ITEMS: SidebarItem[] = [
     { key: 'job-search', label: 'Job Search', icon: Search },
-    { key: 'jobs', label: 'My Jobs', icon: Brain },
-    { key: 'automation', label: 'Automation', icon: Clock },
     { key: 'tasks', label: 'Tasks', icon: ListChecks },
     { key: 'pricing', label: 'Pricing', icon: CreditCard },
-    { key: 'proxy', label: 'Proxy Status', icon: Wifi },
-    // Admin sections (only show if user is admin)
-    { key: 'users', label: 'Users', icon: Users, adminOnly: true },
-    { key: 'create', label: 'Create User', icon: PlusCircle, adminOnly: true },
 ];
 
 const PAGE_SIZE = 10;
@@ -1090,14 +1092,14 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                 <h3 className="text-lg font-semibold text-cyan-200 mb-1">My Jobs</h3>
                                 <p className="text-sm text-gray-400">
                                     {userProfile?.job_title || 'Developer'} • {userProfile?.location || 'Remote'}
-                                    {jobs.length > 0 && (
+                                    {/* {jobs.length > 0 && (
                                         <span className="ml-2 text-cyan-300">
                                             • {jobs.length} jobs loaded
                                             {hasMoreJobs && (
                                                 <span className="text-gray-400"> • Load {Math.floor((currentStart - 5) / 5) + 1}/10 (start: {currentStart})</span>
                                             )}
                                         </span>
-                                    )}
+                                    )} */}
                                 </p>
                             </div>
                             <div className="flex gap-2">
@@ -1122,7 +1124,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                     variant={hasMoreJobs ? "primary" : "outline"}
                                     disabled={loadingMore || !hasMoreJobs}
                                 >
-                                    {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
+                                    {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs` : 'All Loads Complete'}
                                 </GradientButton>
                             </div>
                         </div>
@@ -1186,12 +1188,12 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h4 className="text-lg font-semibold text-cyan-200 mb-1">Load More Jobs</h4>
-                                                <p className="text-sm text-gray-400">
+                                                {/* <p className="text-sm text-gray-400">
                                                     {hasMoreJobs
                                                         ? `Currently loaded ${jobs.length} jobs. Load ${Math.floor((currentStart - 5) / 5) + 1}/10 - Next request will start from position ${currentStart}.`
                                                         : `All 10 loads completed (${jobs.length} total jobs).`
                                                     }
-                                                </p>
+                                                </p> */}
                                             </div>
                                             <GradientButton
                                                 onClick={loadMoreJobs}
@@ -1200,7 +1202,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                                 variant={hasMoreJobs ? "primary" : "outline"}
                                                 disabled={loadingMore || !hasMoreJobs}
                                             >
-                                                {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
+                                                {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs` : 'All Loads Complete'}
                                             </GradientButton>
                                         </div>
                                     </div>
@@ -1465,7 +1467,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                     variant={hasMoreJobs ? "primary" : "outline"}
                                     disabled={loadingMore || !hasMoreJobs}
                                 >
-                                    {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
+                                    {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs ` : 'All Loads Complete'}
                                 </GradientButton>
                             </div>
                         </div>
@@ -1529,12 +1531,12 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h4 className="text-lg font-semibold text-cyan-200 mb-1">Load More Jobs</h4>
-                                                <p className="text-sm text-gray-400">
+                                                {/* <p className="text-sm text-gray-400">
                                                     {hasMoreJobs
                                                         ? `Currently loaded ${jobs.length} jobs. Load ${Math.floor((currentStart - 5) / 5) + 1}/10 - Next request will start from position ${currentStart}.`
                                                         : `All 10 loads completed (${jobs.length} total jobs).`
                                                     }
-                                                </p>
+                                                </p> */}
                                             </div>
                                             <GradientButton
                                                 onClick={loadMoreJobs}
@@ -1543,7 +1545,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                                 variant={hasMoreJobs ? "primary" : "outline"}
                                                 disabled={loadingMore || !hasMoreJobs}
                                             >
-                                                {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
+                                                {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs ` : 'All Loads Complete'}
                                             </GradientButton>
                                         </div>
                                     </div>
@@ -1582,27 +1584,11 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
                     {selected === 'job-search' && (
                         <JobSearchSection userProfile={userProfile} setUserProfile={setUserProfile} />
                     )}
-                    {selected === 'jobs' && (
-                        <ScrapedJobsSection selectedUser={selectedUser} />
-                    )}
-                    {selected === 'automation' && (
-                        <AutomationSection userProfile={userProfile} />
-                    )}
                     {selected === 'tasks' && (
                         <TasksSection selectedUser={selectedUser} userProfile={userProfile} />
                     )}
                     {selected === 'pricing' && (
                         <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} />
-                    )}
-                    {selected === 'proxy' && (
-                        <ProxyTest />
-                    )}
-                    {/* Admin sections */}
-                    {selected === 'users' && (
-                        <UsersSection onSelectUser={onSelectUser} selectedUser={selectedUser} />
-                    )}
-                    {selected === 'create' && (
-                        <CreateUserSection onUserCreated={onUserCreated} />
                     )}
                 </AnimatePresence>
             </div>
@@ -1612,6 +1598,7 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
 
 export default function DashboardPage() {
     const { user, isLoaded, isSignedIn } = useUser();
+    const { signOut } = useClerk();
     const router = useRouter();
     const [selected, setSelected] = useState('job-search');
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -1813,8 +1800,7 @@ export default function DashboardPage() {
 
     const handleRefresh = () => setUsersRefreshKey(k => k + 1);
     const handleLogout = () => {
-        // Implement logout logic here (e.g., clear session, redirect)
-        window.location.href = '/';
+        signOut(() => router.push('/sign-in'));
     };
 
     const handleUpgrade = async (plan: 'lifetime' | 'pro') => {
@@ -1832,59 +1818,18 @@ export default function DashboardPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#0a182e] via-[#0e223a] to-[#1a2a3d] text-white overflow-x-hidden">
-            <Toaster position="top-right" />
-            {/* Animated Background Elements */}
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#0a182e] to-[#1a2a3d]">
+            <Navbar currentPage="dashboard" userProfile={userProfile} />
             <FloatingParticles />
-            <AnimatedBlob className="w-64 h-64 md:w-96 md:h-96 bg-blue-500/20 top-1/4 left-1/4 max-w-[90vw] max-h-[90vh]" color="blue" />
-            <AnimatedBlob className="w-56 h-56 md:w-80 md:h-80 bg-purple-500/20 top-3/4 right-1/4 max-w-[90vw] max-h-[90vh]" color="purple" />
-            <AnimatedBlob className="w-48 h-48 md:w-72 md:h-72 bg-emerald-500/20 bottom-1/4 left-1/3 max-w-[90vw] max-h-[90vh]" color="emerald" />
-
-            <Navbar currentPage="dashboard" />
-
-            <div className="flex pt-16">
+            <main className="flex flex-1">
                 <Sidebar
                     selected={selected}
-                    onSelect={handleTabSelect}
+                    onSelect={setSelected}
                     isMobileOpen={isMobileOpen}
                     setIsMobileOpen={setIsMobileOpen}
                 />
                 <div className="flex-1 flex flex-col">
-                    <TopBar selectedUser={selectedUser} onRefresh={handleRefresh} onLogout={handleLogout} />
-
-                    {/* Debug Test Buttons - Remove these after fixing */}
-                    {process.env.NODE_ENV === 'development' && (
-                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg m-4 space-y-2">
-                            <button
-                                onClick={testSupabaseConnection}
-                                className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-sm font-medium mr-2"
-                            >
-                                🔍 Test Supabase Connection
-                            </button>
-                            <button
-                                onClick={testCreditReset}
-                                className="bg-green-500 text-black px-4 py-2 rounded-lg text-sm font-medium mr-2"
-                            >
-                                🔄 Test Credit Reset
-                            </button>
-                            <button
-                                onClick={testCreditStatus}
-                                className="bg-blue-500 text-black px-4 py-2 rounded-lg text-sm font-medium mr-2"
-                            >
-                                💳 Check Credit Status
-                            </button>
-                            <button
-                                onClick={testUserProfile}
-                                className="bg-purple-500 text-black px-4 py-2 rounded-lg text-sm font-medium"
-                            >
-                                👤 Test User Profile
-                            </button>
-                            <p className="text-yellow-200 text-xs mt-2">
-                                Check browser console for debug info
-                            </p>
-                        </div>
-                    )}
-
+                    {/* Removed UserProfileSection from here */}
                     <DashboardMain
                         selected={selected}
                         selectedUser={selectedUser}
@@ -1893,22 +1838,11 @@ export default function DashboardPage() {
                         userProfile={userProfile}
                         setUserProfile={setUserProfile}
                         onUpgrade={handleUpgrade}
-                        key={usersRefreshKey}
                     />
                 </div>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <motion.button
-                className="md:hidden fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full shadow-xl"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsMobileOpen(true)}
-            >
-                <Menu className="w-6 h-6 text-white" />
-            </motion.button>
-
+            </main>
             <Footer />
+            <Toaster position="top-center" />
         </div>
     );
 } 

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
@@ -16,7 +16,6 @@ interface FormData {
   jobTitle: string;
   location: string;
   email: string;
-  proxy: string;
 }
 
 interface FormErrors {
@@ -124,8 +123,8 @@ const PlanetaryMotion = () => {
       {/* Animation Styles */}
       <style jsx>{`
         @keyframes spinOrbit {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          from {transform: rotate(0deg); }
+          to {transform: rotate(360deg); }
         }
 
         .animate-spin-slow-7 {
@@ -209,7 +208,6 @@ const FloatingBadges = () => {
     </div>
   );
 };
-
 
 // Hero Section Component
 const HeroSection = () => {
@@ -295,7 +293,7 @@ const HeroSection = () => {
 
 // Understand the Need Section
 const UnderstandTheNeed = () => (
-  <section className="relative z-10 py-16 bg-gradient-to-b from-black/80 to-black/60">
+  <section className="relative z-10 py-16 bg-transparent">
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Why KronJobs?</h2>
       <p className="text-lg text-gray-300 mb-4">Tired of missing out on great jobs or spending hours searching LinkedIn? Manual job hunting is slow, repetitive, and easy to miss new opportunities. KronJobs automates your search, scans LinkedIn for you, and delivers the best jobs straight to your inbox—no login required, no premium needed.</p>
@@ -360,100 +358,107 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
   return (
     <section className="relative z-10 py-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          className="bg-white/10 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 p-8 sm:p-12 shadow-2xl"
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-        >
-          <motion.h2
-            className="text-3xl sm:text-4xl font-bold text-white mb-8 text-center bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
-            initial={{ opacity: 0, y: 20 }}
+        {/* macOS-style window wrapper */}
+        <div className="rounded-3xl border border-white/10 bg-white/5 shadow-2xl overflow-hidden backdrop-blur-lg">
+          {/* Mac window header with control dots */}
+          <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 border-b border-white/10">
+            <span className="w-3 h-3 rounded-full bg-red-500" />
+            <span className="w-3 h-3 rounded-full bg-yellow-400" />
+            <span className="w-3 h-3 rounded-full bg-green-500" />
+          </div>
+          {/* Actual animated job form container */}
+          <motion.div
+            className="p-6 sm:p-10"
+            initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            Launch Your Job Search
-          </motion.h2>
-
-          <form onSubmit={onFormSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {[
-                { name: 'jobTitle', icon: Target, placeholder: 'e.g., Frontend Developer', label: 'Job Title' },
-                { name: 'location', icon: MapPin, placeholder: 'San Francisco, Remote', label: 'Location' },
-                { name: 'email', icon: Mail, placeholder: 'your@email.com', label: 'Email' },
-                { name: 'proxy', icon: Globe, placeholder: 'proxy.example.com:8080', label: 'Proxy (Optional)' }
-              ].map((field, index) => (
-                <motion.div
-                  key={field.name}
-                  initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: 0.3 + index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <label className="block text-sm font-medium text-gray-300 mb-2">{field.label}</label>
-                  <div className="relative group">
-                    <field.icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-400 transition-colors" />
-                    <input
-                      type={field.name === 'email' ? 'email' : 'text'}
-                      name={field.name}
-                      value={formData[field.name as keyof FormData]}
-                      onChange={handleInputChange}
-                      className={`w-full pl-12 pr-4 py-4 bg-white/10 border-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300 ${errors[field.name as keyof FormErrors]
-                        ? 'border-red-500/50 focus:border-red-500/50'
-                        : 'border-cyan-500/30'
-                        }`}
-                      placeholder={field.placeholder}
-                    />
-                    {errors[field.name as keyof FormErrors] && (
-                      <motion.p
-                        className="text-red-400 text-sm mt-1"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        {errors[field.name as keyof FormErrors]}
-                      </motion.p>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            <motion.div
-              className="text-center"
+            <motion.h2
+              className="text-3xl sm:text-4xl font-bold text-white mb-8 text-center bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.7 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
               viewport={{ once: true }}
             >
-              <motion.button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 inline-flex items-center space-x-3"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+              Launch Your Job Search
+            </motion.h2>
+            <form onSubmit={onFormSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                {[
+                  { name: 'jobTitle', icon: Target, placeholder: 'e.g., Frontend Developer', label: 'Job Title' },
+                  { name: 'location', icon: MapPin, placeholder: 'San Francisco, Remote', label: 'Location' },
+                  { name: 'email', icon: Mail, placeholder: 'your@email.com', label: 'Email' }
+                ].map((field, index) => (
+                  <motion.div
+                    key={field.name}
+                    initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 + index * 0.1 }}
+                    viewport={{ once: true }}
+                  >
+                    <label className="block text-sm font-medium text-gray-300 mb-2">{field.label}</label>
+                    <div className="relative group">
+                      <field.icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-400 transition-colors" />
+                      <input
+                        type={field.name === 'email' ? 'email' : 'text'}
+                        name={field.name}
+                        value={formData[field.name as keyof FormData]}
+                        onChange={handleInputChange}
+                        className={`w-full pl-12 pr-4 py-4 bg-white/10 border-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300 ${errors[field.name as keyof FormErrors]
+                          ? 'border-red-500/50 focus:border-red-500/50'
+                          : 'border-cyan-500/30'
+                          }`}
+                        placeholder={field.placeholder}
+                      />
+                      {errors[field.name as keyof FormErrors] && (
+                        <motion.p
+                          className="text-red-400 text-sm mt-1"
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {errors[field.name as keyof FormErrors]}
+                        </motion.p>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              <motion.div
+                className="text-center"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.7 }}
+                viewport={{ once: true }}
               >
-                {isSubmitting ? (
-                  <>
-                    <motion.div
-                      className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    />
-                    <span>Launching Scan...</span>
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-5 h-5" />
-                    <span>Launch Job Scan</span>
-                  </>
-                )}
-              </motion.button>
-            </motion.div>
-          </form>
-        </motion.div>
+                <motion.button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 inline-flex items-center space-x-3"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <motion.div
+                        className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      />
+                      <span>Launching Scan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-5 h-5" />
+                      <span>Launch Job Scan</span>
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+            </form>
+          </motion.div>
+        </div>
       </div>
 
       {/* Success Toast */}
@@ -477,93 +482,6 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
   );
 };
 
-// Scraping Tasks Component
-const ScrapingTasks = ({ tasks }: { tasks: Task[] }) => {
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'done': return <CheckCircle className="w-5 h-5 text-emerald-400" />;
-      case 'running': return <Clock className="w-5 h-5 text-blue-400 animate-spin" />;
-      case 'queued': return <AlertCircle className="w-5 h-5 text-yellow-400" />;
-      default: return <AlertCircle className="w-5 h-5 text-gray-400" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm";
-    switch (status) {
-      case 'done': return `${baseClasses} bg-emerald-500/20 text-emerald-300 border border-emerald-500/30`;
-      case 'running': return `${baseClasses} bg-blue-500/20 text-blue-300 border border-blue-500/30`;
-      case 'queued': return `${baseClasses} bg-yellow-500/20 text-yellow-300 border border-yellow-500/30`;
-      default: return `${baseClasses} bg-gray-500/20 text-gray-300 border border-gray-500/30`;
-    }
-  };
-
-  return (
-    <section className="relative z-10 py-20">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.h2
-          className="text-4xl font-bold text-white mb-16 text-center"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-        >
-          Your Scraping Missions
-        </motion.h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {tasks.map((task, index) => (
-            <motion.div
-              key={task.id}
-              className="bg-white/10 backdrop-blur-2xl border border-cyan-500/20 rounded-3xl p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:bg-white/15"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -5, scale: 1.02 }}
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-white/15 rounded-xl group-hover:bg-white/25 transition-colors">
-                    {getStatusIcon(task.status)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{task.title}</h3>
-                    <p className="text-sm text-gray-400">{task.location}</p>
-                  </div>
-                </div>
-                <span className={getStatusBadge(task.status)}>
-                  {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                </span>
-              </div>
-
-              <div className="mb-6">
-                <div className="flex justify-between text-sm mb-3">
-                  <span className="text-gray-400">Progress</span>
-                  <span className="text-white font-medium">{task.progress}%</span>
-                </div>
-                <div className="w-full bg-white/15 rounded-full h-3 overflow-hidden">
-                  <motion.div
-                    className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 h-3 rounded-full"
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${task.progress}%` }}
-                    transition={{ duration: 1, delay: 0.5 }}
-                    viewport={{ once: true }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">Jobs Found</span>
-                <span className="text-2xl font-bold text-white">{task.jobs}</span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
 
 // Feature Cards Component
 const FeatureCards = () => {
@@ -828,7 +746,6 @@ const KronJobsLanding = () => {
     jobTitle: '',
     location: '',
     email: '',
-    proxy: ''
   });
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -886,7 +803,7 @@ const KronJobsLanding = () => {
 
       // 3. Fetch and show tasks
       await fetchTasks(formData.email);
-      setFormData({ jobTitle: '', location: '', email: '', proxy: '' });
+      setFormData({ jobTitle: '', location: '', email: '' });
       setTimeout(scrollToTasks, 500); // Scroll to results
     } catch (err) {
       // Optionally show error UI
@@ -896,7 +813,7 @@ const KronJobsLanding = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden max-w-full w-full">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a182e] to-[#1a2a3d] text-white overflow-x-hidden max-w-full w-full">
       {/* Animated Background */}
       <PlanetaryMotion />
       {/* Animated Blobs */}
@@ -1010,12 +927,16 @@ const KronJobsLanding = () => {
       </nav>
       {/* Main Content */}
       <HeroSection />
-      <UnderstandTheNeed />
+      <section className="relative z-10 py-16 bg-transparent">
+        <UnderstandTheNeed />
+      </section>
       <div ref={formRef}><JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} /></div>
-      <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
+      {/* <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
       <JobsDashboard email={formData.email} />
+      <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
+      <JobsDashboard email={formData.email} /> */}
       <FeatureCards />
-      <PricingSection />
+      <PricingSection showFAQ={false} />
       <HowItWorksSteps />
       <Footer />
       {/* Mobile Sticky CTA */}
