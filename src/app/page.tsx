@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 
 import {
   Search, Target, MapPin, Mail, Globe, CheckCircle, Clock, AlertCircle,
@@ -199,7 +201,7 @@ const FloatingBadges = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.2 }}
-          className="backdrop-blur-md bg-white/5 border border-white/10 text-white text-sm px-4 py-2 rounded-full shadow-sm flex items-center space-x-2 pointer-events-auto hover:bg-white/10 transition"
+          className="backdrop-blur-md bg-white/5 border border-white/10 text-white text-sm px-4 py-2 rounded-full shadow-sm flex items-center space-x-2 pointer-events-auto hover:bg-white/10 transition cursor-pointer"
         >
           {badge.icon}
           <span className="font-medium">{badge.text}</span>
@@ -210,7 +212,16 @@ const FloatingBadges = () => {
 };
 
 // Hero Section Component
-const HeroSection = () => {
+const HeroSection = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) => {
+  // Helper for navigation
+  const handleProtectedNav = (url: string) => {
+    if (isSignedIn) {
+      router.push(url);
+    } else {
+      router.push('/sign-in');
+    }
+  };
+
   return (
     <section className="relative z-10 min-h-screen flex items-center justify-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -251,18 +262,20 @@ const HeroSection = () => {
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             <motion.button
-              className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 inline-flex items-center space-x-3"
+              className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 inline-flex items-center space-x-3 cursor-pointer"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => handleProtectedNav('/dashboard')}
             >
               <Rocket className="w-6 h-6" />
               <span>Start Free</span>
             </motion.button>
 
             <motion.button
-              className="border border-white/30 hover:border-white/50 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 backdrop-blur-sm hover:bg-white/10 inline-flex items-center space-x-3"
+              className="border border-white/30 hover:border-white/50 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 backdrop-blur-sm hover:bg-white/10 inline-flex items-center space-x-3 cursor-pointer"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => handleProtectedNav('/dashboard')}
             >
               <Eye className="w-6 h-6" />
               <span>View Live Jobs</span>
@@ -290,26 +303,6 @@ const HeroSection = () => {
     </section>
   );
 };
-
-// Understand the Need Section
-const UnderstandTheNeed = () => (
-  <section className="relative z-10 py-16 bg-transparent">
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Why KronJobs?</h2>
-      <p className="text-lg text-gray-300 mb-4">Tired of missing out on great jobs or spending hours searching LinkedIn? Manual job hunting is slow, repetitive, and easy to miss new opportunities. KronJobs automates your search, scans LinkedIn for you, and delivers the best jobs straight to your inbox—no login required, no premium needed.</p>
-      <div className="flex flex-col sm:flex-row gap-6 justify-center mt-8">
-        <div className="flex-1 bg-white/5 rounded-2xl p-6 shadow-lg border border-cyan-500/10">
-          <h3 className="text-xl font-semibold text-cyan-400 mb-2">No More FOMO</h3>
-          <p className="text-gray-300 text-base">Never miss a new job posting. Get instant alerts as soon as jobs matching your criteria appear.</p>
-        </div>
-        <div className="flex-1 bg-white/5 rounded-2xl p-6 shadow-lg border border-purple-500/10">
-          <h3 className="text-xl font-semibold text-purple-400 mb-2">Save Hours Weekly</h3>
-          <p className="text-gray-300 text-base">Let automation do the heavy lifting. Focus on applying, not searching.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-);
 
 // Job Scan Form Component
 const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
@@ -434,8 +427,8 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
               >
                 <motion.button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 inline-flex items-center space-x-3"
+                  disabled={!!isSubmitting}
+                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 inline-flex items-center space-x-3 cursor-pointer"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -488,7 +481,7 @@ const FeatureCards = () => {
   const features = [
     {
       icon: Shield,
-      title: "No Login Required",
+      title: "Free to use",
       description: "Scrape LinkedIn jobs without needing an account or premium subscription.",
       color: "from-blue-500 to-blue-600"
     },
@@ -524,7 +517,7 @@ const FeatureCards = () => {
           {features.map((feature, index) => (
             <motion.div
               key={feature.title}
-              className="text-center p-8 sm:p-10 bg-white/10 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 hover:bg-white/15 transition-all duration-300"
+              className="text-center p-8 sm:p-10 bg-white/10 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 hover:bg-white/15 transition-all duration-300 cursor-pointer"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: index * 0.2 }}
@@ -602,25 +595,65 @@ const HowItWorksSteps = () => {
 };
 
 // Footer Component
-const Footer = () => {
+const Footer = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) => {
+  const [showContactToast, setShowContactToast] = useState(false);
+
+  useEffect(() => {
+    if (showContactToast) {
+      const timer = setTimeout(() => setShowContactToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showContactToast]);
+
+  // Helper for navigation
+  const handleProtectedNav = (url: string) => {
+    if (isSignedIn) {
+      router.push(url);
+    } else {
+      router.push('/sign-in');
+    }
+  };
+
   return (
-    <footer className="w-full rounded-2xl py-6 px-4 md:px-8 mt-16 mb-4 shadow-lg">
+    <footer className="w-full rounded-2xl py-6 px-4 md:px-8 mt-16 mb-4 shadow-lg z-10 relative">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Left: Logo and Name */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3">
           <div className="w-7 h-7 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
             <Search className="w-4 h-4 text-white" />
           </div>
           <span className="text-lg font-bold text-white tracking-tight">KronJobs</span>
         </div>
+
         {/* Right: Navigation Links */}
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <a href="#" className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors">Privacy Policy</a>
-          <a href="#" className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors">Terms of Use</a>
-          <a href="#" className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-colors">Contact us</a>
-          <a href="#" className="rounded-full bg-[#232329] text-white hover:bg-cyan-600 hover:text-white px-4 py-2 text-sm font-semibold transition-colors">Get started</a>
+          {/* Contact Us - Button Fix */}
+          <button
+            onClick={() => setShowContactToast(true)}
+            className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            Contact us
+          </button>
+
+          {/* Twitter Button */}
+          <a
+            href="https://x.com/i_m_krrishnendu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full bg-[#232329] text-cyan-400 hover:bg-cyan-700/20 px-3 py-2 text-sm font-medium transition-all flex items-center hover:scale-105 active:scale-95 cursor-pointer"
+            aria-label="Twitter"
+          >
+            <Twitter className="w-5 h-5" />
+          </a>
         </div>
       </div>
+
+      {/* Contact Toast */}
+      {showContactToast && (
+        <div className="fixed bottom-24 right-8 z-50 bg-cyan-700/90 text-white px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3 max-w-xs w-auto pointer-events-auto">
+          <span>Write to me at support@kron-job.com</span>
+        </div>
+      )}
     </footer>
   );
 };
@@ -667,7 +700,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
           <h2 className="text-3xl sm:text-4xl font-bold text-white bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Your Scraped Jobs</h2>
           <button
             onClick={fetchJobs}
-            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all"
+            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all cursor-pointer"
           >
             Refresh
           </button>
@@ -681,7 +714,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
             {tasks.map((task, idx) => (
               <motion.div
                 key={task.id || idx}
-                className="bg-white/10 backdrop-blur-xl border border-cyan-500/10 rounded-2xl p-6 shadow-lg hover:bg-white/15 transition-all duration-300"
+                className="bg-white/10 backdrop-blur-xl border border-cyan-500/10 rounded-2xl p-6 shadow-lg hover:bg-white/15 transition-all duration-300 cursor-pointer"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: idx * 0.1 }}
@@ -699,7 +732,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
                     {task.jobs.map((job: any, jdx: number) => (
                       <motion.div
                         key={job.id || jdx}
-                        className="bg-white/10 border border-cyan-500/10 rounded-2xl p-4 shadow flex flex-col justify-between hover:bg-white/20 transition-all duration-300"
+                        className="bg-white/10 border border-cyan-500/10 rounded-2xl p-4 shadow flex flex-col justify-between hover:bg-white/20 transition-all duration-300 cursor-pointer"
                         whileHover={{ scale: 1.03 }}
                       >
                         <div>
@@ -712,7 +745,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
                             href={job.url || job.link || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 text-xs font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all"
+                            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 text-xs font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all cursor-pointer"
                           >
                             View Job
                           </a>
@@ -742,6 +775,8 @@ const JobsDashboard = ({ email }: { email: string }) => {
 
 // Main Component
 const KronJobsLanding = () => {
+  const { isSignedIn } = useUser();
+  const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     jobTitle: '',
     location: '',
@@ -840,24 +875,9 @@ const KronJobsLanding = () => {
               </span>
             </motion.div>
             {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-8">
-              {['Features', 'Pricing', 'How it Works', 'Contact'].map((item, i) => (
-                <motion.a
-                  key={item}
-                  href={`#${item.toLowerCase().replace(' ', '-')}`}
-                  className="text-gray-300 hover:text-white font-medium transition-colors relative group"
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: i * 0.1 }}
-                >
-                  {item}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 group-hover:w-full"></span>
-                </motion.a>
-              ))}
-            </div>
             {/* Mobile Menu Button */}
             <motion.button
-              className="md:hidden p-2 rounded-lg border border-cyan-500/30 hover:border-cyan-400/50 backdrop-blur-sm hover:bg-cyan-500/10 transition-all duration-300"
+              className="md:hidden p-2 rounded-lg border border-cyan-500/30 hover:border-cyan-400/50 backdrop-blur-sm hover:bg-cyan-500/10 transition-all duration-300 cursor-pointer"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -872,7 +892,7 @@ const KronJobsLanding = () => {
             <div className="flex items-center space-x-4">
               <motion.a
                 href="/dashboard"
-                className="text-gray-300 hover:text-white font-medium transition-colors px-4 py-2 rounded-lg hover:bg-white/10"
+                className="text-gray-300 hover:text-white font-medium transition-colors px-4 py-2 rounded-lg hover:bg-white/10 cursor-pointer"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
@@ -880,13 +900,13 @@ const KronJobsLanding = () => {
                 Dashboard
               </motion.a>
               <motion.button
-                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
+                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={scrollToForm}
+                onClick={() => handleProtectedNav('/dashboard')}
               >
                 Start Free
               </motion.button>
@@ -910,7 +930,7 @@ const KronJobsLanding = () => {
                     <motion.a
                       key={item}
                       href={`#${item.toLowerCase().replace(' ', '-')}`}
-                      className="block text-gray-300 hover:text-white font-medium transition-colors py-2"
+                      className="block text-gray-300 hover:text-white font-medium transition-colors py-2 cursor-pointer"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: i * 0.1 }}
@@ -926,19 +946,34 @@ const KronJobsLanding = () => {
         </div>
       </nav>
       {/* Main Content */}
-      <HeroSection />
-      <section className="relative z-10 py-16 bg-transparent">
-        <UnderstandTheNeed />
-      </section>
-      <div ref={formRef}><JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} /></div>
-      {/* <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
-      <JobsDashboard email={formData.email} />
-      <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
-      <JobsDashboard email={formData.email} /> */}
+      <HeroSection isSignedIn={isSignedIn} router={router} />
+      <div ref={formRef} className="relative z-10 py-20">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          {/* Left: Selling/Pain Point */}
+          <div className="mb-10 md:mb-0">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Tired of missing jobs?</h2>
+            <p className="text-lg text-gray-300 mb-6">Let KronJobs do the searching for you. No more endless scrolling, no more FOMO. Get instant alerts, save hours every week, and never miss a great opportunity again.</p>
+            <ul className="list-disc list-inside text-gray-400 space-y-2 pl-2">
+              <li>⏰ Real-time job alerts</li>
+              <li>🤖 Automated LinkedIn scraping</li>
+              <li>🔒 Early access </li>
+              <li>🚀 Apply faster, stress less</li>
+            </ul>
+          </div>
+          {/* Right: Tilted Form */}
+          <div className="w-full">
+            <div className="relative w-full">
+              <div className="rotate-[-2deg] hover:rotate-0 transition-transform duration-300 w-full">
+                <JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <FeatureCards />
       <PricingSection showFAQ={false} />
       <HowItWorksSteps />
-      <Footer />
+      <Footer isSignedIn={isSignedIn} router={router} />
       {/* Mobile Sticky CTA */}
       <motion.div
         className="fixed bottom-4 left-4 right-4 z-50 md:hidden"
@@ -947,10 +982,10 @@ const KronJobsLanding = () => {
         transition={{ delay: 1, duration: 0.5 }}
       >
         <motion.button
-          className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-6 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
+          className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-6 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={scrollToForm}
+          onClick={() => handleProtectedNav('/dashboard')}
         >
           <div className="flex items-center justify-center space-x-2">
             <Rocket className="w-5 h-5" />
