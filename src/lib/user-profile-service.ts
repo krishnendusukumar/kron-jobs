@@ -83,6 +83,29 @@ export interface PricingPlan {
     isComingSoon?: boolean;
 }
 
+interface ClerkData {
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string;
+    email_verified?: boolean;
+}
+
+interface UsageDetails {
+    keywords?: string;
+    location?: string;
+    start?: number;
+    action?: string;
+    [key: string]: unknown;
+}
+
+interface UserUsageSummary {
+    total_usage: number;
+    job_searches: number;
+    cron_executions: number;
+    api_calls: number;
+    daily_breakdown: Array<{ date: string; usage: number }>;
+}
+
 export class UserProfileService {
     private static readonly AVAILABLE_CRON_SLOTS = ['10:00', '12:00', '15:00', '18:00', '21:00'];
 
@@ -196,7 +219,7 @@ export class UserProfileService {
         }
     }
 
-    static async createUserProfile(userId: string, email: string, clerkData?: any): Promise<UserProfile | null> {
+    static async createUserProfile(userId: string, email: string, clerkData?: ClerkData): Promise<UserProfile | null> {
         try {
             console.log('🔍 Debug - Attempting to create user profile for:', userId, 'with email:', email);
 
@@ -590,14 +613,16 @@ export class UserProfileService {
 
     // Enhanced methods for Clerk integration and usage tracking
 
-    static async trackUsage(userId: string, usageType: 'job_search' | 'cron_execution' | 'api_call', creditsConsumed: number = 1, details?: any): Promise<boolean> {
+    static async trackUsage(userId: string, usageType: 'job_search' | 'cron_execution' | 'api_call', creditsConsumed: number = 1, details?: UsageDetails): Promise<boolean> {
         try {
-            const { error } = await supabase.rpc('track_user_usage', {
-                p_user_id: userId,
-                p_usage_type: usageType,
-                p_credits_consumed: creditsConsumed,
-                p_details: details || {}
-            });
+            const { error } = await supabase
+                .from('user_usage')
+                .insert({
+                    user_id: userId,
+                    usage_type: usageType,
+                    credits_consumed: creditsConsumed,
+                    details: details || {}
+                });
 
             if (error) {
                 console.error('Error tracking usage:', error);
@@ -655,44 +680,115 @@ export class UserProfileService {
         }
     }
 
-    static async getUserUsageSummary(userId: string, days: number = 30): Promise<any> {
+    static async getUserUsageSummary(userId: string, days: number = 30): Promise<UserUsageSummary | null> {
         try {
-            const { data, error } = await supabase.rpc('get_user_usage_summary', {
-                p_user_id: userId,
-                p_days: days
-            });
+            const { data, error } = await supabase
+                .from('user_usage')
+                .select('*')
+                .eq('user_id', userId)
+                .gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
+                .order('created_at', { ascending: false });
 
-            if (error || !data || data.length === 0) {
-                console.error('Error getting usage summary:', error);
+            if (error) {
+                console.error('Error fetching usage summary:', error);
                 return null;
             }
 
-            return data[0];
+            const usage = data || [];
+            const totalUsage = usage.reduce((sum, record) => sum + record.credits_consumed, 0);
+            const jobSearches = usage.filter(record => record.usage_type === 'job_search').length;
+            const cronExecutions = usage.filter(record => record.usage_type === 'cron_execution').length;
+            const apiCalls = usage.filter(record => record.usage_type === 'api_call').length;
+
+            // Group by date
+            const dailyBreakdown = usage.reduce((acc, record) => {
+                const date = record.created_at.split('T')[0];
+                acc[date] = (acc[date] || 0) + record.credits_consumed;
+                return acc;
+            }, {} as Record<string, number>);
+
+            return {
+                total_usage: totalUsage,
+                job_searches: jobSearches,
+                cron_executions: cronExecutions,
+                api_calls: apiCalls,
+                daily_breakdown: Object.entries(dailyBreakdown).map(([date, usage]) => ({ date, usage: usage as number }))
+            };
         } catch (error) {
             console.error('Error in getUserUsageSummary:', error);
             return null;
         }
     }
 
-    static async syncClerkUser(clerkUserId: string, email: string, clerkData?: any): Promise<UserProfile | null> {
+    static async syncClerkUser(clerkUserId: string, email: string, clerkData?: ClerkData): Promise<UserProfile | null> {
         try {
-            const { data, error } = await supabase.rpc('sync_clerk_user', {
-                p_clerk_user_id: clerkUserId,
-                p_email: email,
-                p_first_name: clerkData?.first_name,
-                p_last_name: clerkData?.last_name,
-                p_avatar_url: clerkData?.avatar_url,
-                p_email_verified: clerkData?.email_verified || false
-            });
+            console.log('🔄 Syncing Clerk user:', clerkUserId, 'with email:', email);
 
-            if (error) {
-                console.error('Error syncing Clerk user:', error);
-                return null;
+            // First, try to get existing profile by Clerk user ID
+            let profile = await this.getUserProfile(clerkUserId);
+
+            if (!profile) {
+                // Try to find by email
+                const { data: emailProfile, error: emailError } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('email', email)
+                    .single();
+
+                if (emailProfile && !emailError) {
+                    // Update existing profile with Clerk user ID
+                    const { data: updatedProfile, error: updateError } = await supabase
+                        .from('user_profiles')
+                        .update({
+                            user_id: clerkUserId,
+                            clerk_user_id: clerkUserId,
+                            first_name: clerkData?.first_name || emailProfile.first_name,
+                            last_name: clerkData?.last_name || emailProfile.last_name,
+                            avatar_url: clerkData?.avatar_url || emailProfile.avatar_url,
+                            email_verified: clerkData?.email_verified || emailProfile.email_verified,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', emailProfile.id)
+                        .select()
+                        .single();
+
+                    if (updateError) {
+                        console.error('Error updating profile with Clerk ID:', updateError);
+                        return null;
+                    }
+
+                    profile = updatedProfile;
+                } else {
+                    // Create new profile
+                    profile = await this.createUserProfile(clerkUserId, email, clerkData);
+                }
+            } else {
+                // Update existing profile with latest Clerk data
+                const { data: updatedProfile, error: updateError } = await supabase
+                    .from('user_profiles')
+                    .update({
+                        first_name: clerkData?.first_name || profile.first_name,
+                        last_name: clerkData?.last_name || profile.last_name,
+                        avatar_url: clerkData?.avatar_url || profile.avatar_url,
+                        email_verified: clerkData?.email_verified || profile.email_verified,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', clerkUserId)
+                    .select()
+                    .single();
+
+                if (updateError) {
+                    console.error('Error updating profile:', updateError);
+                    return null;
+                }
+
+                profile = updatedProfile;
             }
 
-            return data;
+            console.log('✅ Clerk user synced successfully:', profile?.user_id);
+            return profile;
         } catch (error) {
-            console.error('Error in syncClerkUser:', error);
+            console.error('❌ Error syncing Clerk user:', error);
             return null;
         }
     }
