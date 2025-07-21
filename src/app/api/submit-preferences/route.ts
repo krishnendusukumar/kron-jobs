@@ -32,7 +32,13 @@ export async function POST(req: NextRequest) {
             insertData.phone = phone.trim();
         }
 
-        const { error } = await supabase.from('job_preferences').insert([insertData]);
+        // Use upsert to handle existing records
+        const { error } = await supabase
+            .from('job_preferences')
+            .upsert([insertData], {
+                onConflict: 'email',
+                ignoreDuplicates: false
+            });
 
         if (error) {
             return NextResponse.json({ success: false, error: error.message }, { status: 500 });

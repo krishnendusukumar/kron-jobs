@@ -9,6 +9,9 @@ import {
   Rocket, Orbit, Satellite, Sparkles, Eye
 } from 'lucide-react';
 
+// Import the pricing component
+import PricingSection from '../components/PricingSection/page';
+
 interface FormData {
   jobTitle: string;
   location: string;
@@ -250,7 +253,7 @@ const HeroSection = () => {
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             <motion.button
-              className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 inline-flex items-center space-x-3"
+              className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 inline-flex items-center space-x-3"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -921,7 +924,7 @@ const KronJobsLanding = () => {
             </motion.div>
             {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-8">
-              {['Features', 'How it Works', 'Contact'].map((item, i) => (
+              {['Features', 'Pricing', 'How it Works', 'Contact'].map((item, i) => (
                 <motion.a
                   key={item}
                   href={`#${item.toLowerCase().replace(' ', '-')}`}
@@ -948,18 +951,29 @@ const KronJobsLanding = () => {
                 <span className={`w-4 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></span>
               </div>
             </motion.button>
-            {/* CTA Button */}
-            <motion.button
-              className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={scrollToForm}
-            >
-              Start Free
-            </motion.button>
+            {/* CTA Buttons */}
+            <div className="flex items-center space-x-4">
+              <motion.a
+                href="/dashboard"
+                className="text-gray-300 hover:text-white font-medium transition-colors px-4 py-2 rounded-lg hover:bg-white/10"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                Dashboard
+              </motion.a>
+              <motion.button
+                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={scrollToForm}
+              >
+                Start Free
+              </motion.button>
+            </div>
           </div>
           {/* Mobile Menu Overlay */}
           <div className="top-24 inset-x-0 z-40 hidden lg:flex justify-center space-x-4 pointer-events-none">
@@ -975,7 +989,7 @@ const KronJobsLanding = () => {
                 transition={{ duration: 0.3 }}
               >
                 <div className="px-4 py-6 space-y-4">
-                  {['Features', 'How it Works', 'Contact'].map((item, i) => (
+                  {['Features', 'Pricing', 'How it Works', 'Contact'].map((item, i) => (
                     <motion.a
                       key={item}
                       href={`#${item.toLowerCase().replace(' ', '-')}`}
@@ -1001,6 +1015,7 @@ const KronJobsLanding = () => {
       <div ref={tasksRef}><ScrapingTasks tasks={tasks} /></div>
       <JobsDashboard email={formData.email} />
       <FeatureCards />
+      <PricingSection />
       <HowItWorksSteps />
       <Footer />
       {/* Mobile Sticky CTA */}

@@ -38,17 +38,17 @@ export async function saveJobsToDatabase(userId: string, jobs: JobCard[]) {
         job_url: jobsToInsert[0].job_url?.substring(0, 50) + '...'
     });
 
-    // Try upsert with the new composite constraint
+    // Try upsert with the correct constraint (job_url is unique)
     const { data, error } = await supabase
         .from("jobs")
         .upsert(jobsToInsert, {
-            onConflict: "job_url,user_id", // Use the new composite constraint
+            onConflict: "job_url", // Use the unique constraint on job_url
         })
         .select();
 
     if (error) {
         console.error("❌ Supabase upsert error:", error);
-        
+
         // Fallback: try individual inserts if upsert fails
         console.log("🔄 Falling back to individual inserts...");
         let savedCount = 0;
@@ -56,7 +56,7 @@ export async function saveJobsToDatabase(userId: string, jobs: JobCard[]) {
             const { error: insertError } = await supabase
                 .from("jobs")
                 .insert(job);
-            
+
             if (insertError) {
                 if (insertError.code === '23505') {
                     console.log(`⏭️ Job already exists: ${job.title} at ${job.company}`);

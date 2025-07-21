@@ -117,6 +117,52 @@ export async function POST(req: NextRequest) {
 
         console.log(`🔄 Loading more jobs for user: ${userId}, start: ${start}`);
 
+        // Check and consume credit for job search (only on first load, not on subsequent loads)
+        if (start === 5) {
+            const { UserProfileService } = await import('@/lib/user-profile-service');
+
+            // Get user profile to check credits directly
+            const userProfile = await UserProfileService.getUserProfile(userId);
+            if (!userProfile) {
+                return NextResponse.json({
+                    success: false,
+                    error: 'User profile not found',
+                    message: '❌ User profile not found. Please try refreshing the page.'
+                }, { status: 404 });
+            }
+
+            // Check if user has credits
+            if (userProfile.credits_remaining <= 0) {
+                return NextResponse.json({
+                    success: false,
+                    error: 'No credits remaining',
+                    message: '❌ No credits remaining! Please upgrade your plan or wait for daily reset tomorrow.'
+                }, { status: 403 });
+            }
+
+            console.log(`✅ User has ${userProfile.credits_remaining} credits available`);
+
+            // Consume credit for the job search
+            const creditConsumed = await UserProfileService.consumeCredit(userId);
+            if (!creditConsumed) {
+                return NextResponse.json({
+                    success: false,
+                    error: 'Failed to consume credit',
+                    message: '❌ Failed to process credit. Please try again.'
+                }, { status: 500 });
+            }
+
+            // Track usage for analytics
+            await UserProfileService.trackUsage(userId, 'job_search', 1, {
+                keywords,
+                location,
+                start,
+                action: 'manual_job_search'
+            });
+
+            console.log('✅ Credit consumed successfully for job search');
+        }
+
         // Try the new queue system first, fall back to direct scraping if it fails
         try {
             const { JobService } = await import('@/lib/job-service');

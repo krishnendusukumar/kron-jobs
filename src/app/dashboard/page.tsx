@@ -2,20 +2,29 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Users, PlusCircle, ListChecks, Brain, Search, Menu, X, ArrowDown, Rocket, Eye, RefreshCw, ExternalLink, Wifi } from 'lucide-react';
+import { User, Users, PlusCircle, ListChecks, Brain, Search, Menu, X, ArrowDown, Rocket, Eye, RefreshCw, ExternalLink, Wifi, Clock, CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/shared/Navbar';
 import Footer from '@/components/shared/Footer';
 import GradientButton from '@/components/shared/GradientButton';
 import AnimatedBlob from '@/components/shared/AnimatedBlob';
 import ProxyTest from '@/components/ProxyTest/page';
 import { toast, Toaster } from 'react-hot-toast';
+import { UserProfileService, UserProfile } from '../../lib/user-profile-service';
+import PricingSection from '../../components/PricingSection/page';
+import CronManager from '../../components/CronManager/page';
 
 const SIDEBAR_ITEMS = [
-    { key: 'users', label: 'Users', icon: Users },
-    { key: 'create', label: 'Create User', icon: PlusCircle },
+    { key: 'job-search', label: 'Job Search', icon: Search },
+    { key: 'jobs', label: 'My Jobs', icon: Brain },
+    { key: 'automation', label: 'Automation', icon: Clock },
     { key: 'tasks', label: 'Tasks', icon: ListChecks },
-    { key: 'jobs', label: 'Scraped Jobs', icon: Brain },
+    { key: 'pricing', label: 'Pricing', icon: CreditCard },
     { key: 'proxy', label: 'Proxy Status', icon: Wifi },
+    // Admin sections (only show if user is admin)
+    { key: 'users', label: 'Users', icon: Users, adminOnly: true },
+    { key: 'create', label: 'Create User', icon: PlusCircle, adminOnly: true },
 ];
 
 const PAGE_SIZE = 10;
@@ -81,12 +90,12 @@ function Sidebar({ selected, onSelect, isMobileOpen, setIsMobileOpen }: {
             <aside className="hidden md:flex sticky top-16 h-[calc(100vh-4rem)] w-64 bg-gradient-to-b from-[#0a182e] to-[#1a2a3d] backdrop-blur-md border-r border-cyan-400/30 flex-col py-8 px-4 z-20">
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                        KronJobs Admin
+                        KronJobs
                     </h2>
-                    <p className="text-sm text-gray-400 mt-2">Manage users, tasks & jobs</p>
+                    <p className="text-sm text-gray-400 mt-2">AI-Powered Job Search</p>
                 </div>
                 <nav className="flex flex-col gap-2">
-                    {SIDEBAR_ITEMS.map((item, index) => (
+                    {SIDEBAR_ITEMS.filter(item => !item.adminOnly).map((item, index) => (
                         <motion.button
                             key={item.key}
                             onClick={() => onSelect(item.key)}
@@ -163,6 +172,433 @@ function Sidebar({ selected, onSelect, isMobileOpen, setIsMobileOpen }: {
                 )}
             </AnimatePresence>
         </>
+    );
+}
+
+// Job Search Section Component
+function JobSearchSection({ userProfile, setUserProfile }: { userProfile: UserProfile | null, setUserProfile: (profile: UserProfile | null) => void }) {
+    const [formData, setFormData] = useState({
+        jobTitle: '',
+        location: '',
+        keywords: '',
+        experience: 'entry',
+        jobType: 'full-time'
+    });
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searchHistory, setSearchHistory] = useState<any[]>([]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Prevent double submission
+        if (isSearching) {
+            console.log('🔄 Search already in progress, ignoring duplicate request');
+            return;
+        }
+
+        console.log('🔍 Job search form submitted:', formData);
+
+        if (!userProfile) {
+            console.log('❌ No user profile available');
+            toast.error('Please wait while we load your profile...');
+            return;
+        }
+
+        console.log('🔍 User profile:', userProfile);
+
+        // Check remaining credits directly from user profile
+        if (userProfile.credits_remaining <= 0) {
+            console.log('❌ No credits remaining');
+            toast.error('❌ No credits remaining! Please upgrade your plan or wait for daily reset tomorrow.');
+            return;
+        }
+
+        console.log(`✅ Credits available: ${userProfile.credits_remaining}`);
+
+        setIsSearching(true);
+
+        try {
+            // First, save or update job preferences
+            console.log('💾 Saving job preferences...');
+            const preferencesResponse = await fetch('/api/submit-preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: userProfile.email,
+                    jobTitle: formData.jobTitle,
+                    keywords: formData.keywords,
+                    location: formData.location,
+                    experience: formData.experience,
+                    notifyMethod: 'Mail'
+                }),
+            });
+
+            const preferencesResult = await preferencesResponse.json();
+            if (!preferencesResult.success) {
+                throw new Error(preferencesResult.error || 'Failed to save preferences');
+            }
+
+            console.log('✅ Job preferences saved');
+
+            // Use the load-more-jobs API to scrape jobs (starts from 5)
+            console.log('🚀 Starting job scraping via load-more-jobs...');
+            const scrapingResponse = await fetch('/api/load-more-jobs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: userProfile.user_id,
+                    keywords: `${formData.jobTitle} ${formData.keywords}`.trim(),
+                    location: formData.location,
+                    start: 5, // Start from 5 as per the API design
+                    f_WT: '2', // Remote work preference
+                    timespan: 'r86400' // Last 24 hours
+                }),
+            });
+
+            console.log('🔍 Scraping API response status:', scrapingResponse.status);
+            const scrapingResult = await scrapingResponse.json();
+            console.log('🔍 Scraping API response:', scrapingResult);
+
+            if (!scrapingResult.success) {
+                console.error('❌ Scraping failed:', scrapingResult.error, scrapingResult.message);
+                toast.error(scrapingResult.message || '❌ Job search failed. Please try again.');
+                return;
+            }
+
+            // Log credit consumption for debugging
+            console.log('💰 Credit consumption check - Before reloading user profile');
+            console.log('💰 Current userProfile credits:', userProfile?.credits_remaining);
+
+            if (scrapingResult.success) {
+                // Credit consumption is now handled in the backend API
+                console.log('✅ Job search completed successfully');
+
+                // Reload user profile to get updated credit count
+                const updatedProfile = await UserProfileService.getUserProfile(userProfile.user_id);
+                if (updatedProfile) {
+                    // Update the userProfile state to reflect new credit count
+                    // This will trigger a re-render of the credits display
+                    setUserProfile(updatedProfile);
+                }
+
+                // Wait a moment for jobs to be saved to database
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Fetch actual job count from database
+                try {
+                    const jobsResponse = await fetch(`/api/jobs?userId=${encodeURIComponent(userProfile.user_id)}&limit=1&sortBy=created_at&sortOrder=desc`);
+                    const jobsData = await jobsResponse.json();
+
+                    if (jobsData.success) {
+                        const actualJobsCount = jobsData.pagination?.total || 0;
+                        const recentJobsCount = jobsData.jobs?.length || 0;
+
+                        toast.success(`✅ Job search completed! Found ${recentJobsCount} recent jobs (${actualJobsCount} total in database). Credit deducted.`);
+
+                        // Add to search history with actual counts
+                        const newSearch = {
+                            id: Date.now(),
+                            ...formData,
+                            status: 'completed',
+                            timestamp: new Date().toISOString(),
+                            jobsFound: recentJobsCount,
+                            newJobsCount: recentJobsCount,
+                            totalJobs: actualJobsCount
+                        };
+                        setSearchHistory(prev => [newSearch, ...prev]);
+
+                        // Trigger a refresh of the tasks section
+                        window.dispatchEvent(new CustomEvent('refreshTasks'));
+                    } else {
+                        toast.success(`✅ Job search completed! Jobs are being processed. Credit deducted.`);
+                    }
+                } catch (fetchError) {
+                    console.log('Could not fetch job count, but search completed successfully');
+                    toast.success(`✅ Job search completed! Jobs are being processed. Credit deducted.`);
+                }
+
+                // Clear form
+                setFormData({
+                    jobTitle: '',
+                    location: '',
+                    keywords: '',
+                    experience: 'entry',
+                    jobType: 'full-time'
+                });
+            } else {
+                toast.error(scrapingResult.error || 'Failed to start job search');
+            }
+        } catch (error) {
+            console.error('❌ Search error:', error);
+            toast.error('Failed to start job search. Please try again.');
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-8"
+        >
+            {/* Header */}
+            <div className="text-center">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-4">
+                    Job Search
+                </h1>
+                <p className="text-gray-400 text-lg">
+                    Find your next opportunity with AI-powered job matching
+                </p>
+
+                {/* Credits Display */}
+                {userProfile && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl border border-cyan-400/20">
+                        <div className="flex items-center justify-center gap-4">
+                            <div className="text-center">
+                                <p className="text-cyan-200 text-sm">Credits Remaining</p>
+                                <p className="text-2xl font-bold text-cyan-400">{userProfile.credits_remaining}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-purple-200 text-sm">Plan</p>
+                                <p className="text-lg font-semibold text-purple-400 capitalize">{userProfile.plan}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Search Form */}
+            <div className="max-w-4xl mx-auto">
+                <div className="bg-white/5 backdrop-blur-xl border border-cyan-400/20 rounded-3xl p-8 shadow-2xl">
+                    <form onSubmit={handleSearch} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Job Title */}
+                            <div>
+                                <label className="block text-cyan-200 text-sm font-medium mb-2">
+                                    Job Title *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="jobTitle"
+                                    value={formData.jobTitle}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g., Software Engineer, Marketing Manager"
+                                    className="w-full bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3"
+                                    required
+                                />
+                            </div>
+
+                            {/* Location */}
+                            <div>
+                                <label className="block text-cyan-200 text-sm font-medium mb-2">
+                                    Location *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="location"
+                                    value={formData.location}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g., New York, NY or Remote"
+                                    className="w-full bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3"
+                                    required
+                                />
+                            </div>
+
+                            {/* Keywords */}
+                            <div>
+                                <label className="block text-cyan-200 text-sm font-medium mb-2">
+                                    Keywords (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    name="keywords"
+                                    value={formData.keywords}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g., React, Python, AWS, Agile"
+                                    className="w-full bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3"
+                                />
+                            </div>
+
+                            {/* Experience Level */}
+                            <div>
+                                <label className="block text-cyan-200 text-sm font-medium mb-2">
+                                    Experience Level
+                                </label>
+                                <select
+                                    name="experience"
+                                    value={formData.experience}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-black/30 border border-cyan-400/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3"
+                                >
+                                    <option value="entry">Entry Level</option>
+                                    <option value="mid">Mid Level</option>
+                                    <option value="senior">Senior Level</option>
+                                    <option value="executive">Executive</option>
+                                </select>
+                            </div>
+
+                            {/* Job Type */}
+                            <div>
+                                <label className="block text-cyan-200 text-sm font-medium mb-2">
+                                    Job Type
+                                </label>
+                                <select
+                                    name="jobType"
+                                    value={formData.jobType}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-black/30 border border-cyan-400/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3"
+                                >
+                                    <option value="full-time">Full Time</option>
+                                    <option value="part-time">Part Time</option>
+                                    <option value="contract">Contract</option>
+                                    <option value="internship">Internship</option>
+                                    <option value="remote">Remote</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Search Button */}
+                        <div className="text-center pt-4">
+                            <button
+                                type="submit"
+                                disabled={isSearching || !userProfile || userProfile.credits_remaining <= 0}
+                                className={`px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 inline-flex items-center space-x-3 ${isSearching || !userProfile || userProfile.credits_remaining <= 0
+                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white shadow-xl hover:shadow-cyan-500/25'
+                                    }`}
+                            >
+                                {isSearching ? (
+                                    <>
+                                        <Loader2 className="w-6 h-6 animate-spin" />
+                                        <span>Searching...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Search className="w-6 h-6" />
+                                        <span>Start Job Search</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {/* Search History */}
+            {searchHistory.length > 0 && (
+                <div className="max-w-4xl mx-auto">
+                    <h3 className="text-2xl font-bold text-white mb-6">Recent Searches</h3>
+                    <div className="space-y-4">
+                        {searchHistory.map((search) => (
+                            <div
+                                key={search.id}
+                                className="bg-white/5 backdrop-blur-xl border border-cyan-400/20 rounded-2xl p-6"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-white">
+                                            {search.jobTitle} in {search.location}
+                                        </h4>
+                                        <p className="text-gray-400 text-sm">
+                                            {search.experience} • {search.jobType}
+                                            {search.keywords && ` • Keywords: ${search.keywords}`}
+                                        </p>
+                                        <p className="text-gray-500 text-xs mt-1">
+                                            {new Date(search.timestamp).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-sm">
+                                            {search.status}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </motion.div>
+    );
+}
+
+function AutomationSection({ userProfile }: { userProfile: UserProfile | null }) {
+    if (!userProfile) {
+        return (
+            <motion.div
+                key="automation"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -24 }}
+                transition={{ duration: 0.3 }}
+            >
+                <motion.h2
+                    className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    Automation
+                </motion.h2>
+                <div className="rounded-3xl bg-white/5 backdrop-blur-xl border border-cyan-400/20 p-8 min-h-[400px] shadow-2xl">
+                    <div className="text-center text-gray-400 py-12">
+                        <Clock className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
+                        <p className="text-lg">Loading user profile...</p>
+                    </div>
+                </div>
+            </motion.div>
+        );
+    }
+
+    return (
+        <motion.div
+            key="automation"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.3 }}
+        >
+            <motion.h2
+                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                Automation
+            </motion.h2>
+            <CronManager userProfile={userProfile} />
+        </motion.div>
+    );
+}
+
+function TopBar({ selectedUser, onRefresh, onLogout }: { selectedUser: any, onRefresh: () => void, onLogout: () => void }) {
+    return (
+        <div className="sticky top-0 z-30 w-full bg-black/30 backdrop-blur-2xl border-b border-white/10 flex items-center justify-between px-6 py-4 mb-4 shadow-lg">
+            <div className="flex items-center gap-4">
+                <span className="text-cyan-300 font-mono text-lg">
+                    {selectedUser ? selectedUser.email : 'No user selected'}
+                </span>
+            </div>
+            <div className="flex gap-2">
+                <GradientButton size="sm" variant="outline" onClick={onRefresh}>Refresh</GradientButton>
+                <GradientButton size="sm" variant="primary" onClick={onLogout}>Logout</GradientButton>
+            </div>
+        </div>
     );
 }
 
@@ -276,6 +712,7 @@ function UsersSection({ onSelectUser, selectedUser }: { onSelectUser: (user: any
     );
 }
 
+// Create User Section Component
 function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
     const [form, setForm] = useState({
         jobTitle: '',
@@ -393,79 +830,234 @@ function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
     );
 }
 
-function TasksSection({ selectedUser }: { selectedUser: any }) {
-    const [tasks, setTasks] = useState<any[]>([]);
+// Tasks Section Component
+function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userProfile?: any }) {
+    const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [hasMoreJobs, setHasMoreJobs] = useState(true);
+    const [currentStart, setCurrentStart] = useState(5); // Start with 5 as requested
 
-    const fetchTasks = async () => {
-        if (!selectedUser?.email) {
+    const fetchJobs = async () => {
+        const userEmail = userProfile?.email || selectedUser?.email;
+        if (!userEmail) {
             setError('Please select a user first');
             return;
         }
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/start-scraping?userId=${encodeURIComponent(selectedUser.email)}`);
+            const params = new URLSearchParams({
+                userId: userProfile?.user_id || selectedUser?.user_id || userEmail,
+                page: page.toString(),
+                limit: '12'
+            });
+            if (statusFilter !== 'all') {
+                params.append('status', statusFilter);
+            }
+
+            console.log('🔄 Fetching jobs with params:', params.toString());
+            const res = await fetch(`/api/jobs?${params}`);
             const data = await res.json();
-            console.log('Tasks API response:', data);
-            if (data.tasks) {
-                setTasks(data.tasks);
+            console.log('📄 Jobs API response:', data);
+
+            if (data.success) {
+                console.log(`✅ Fetched ${data.jobs.length} jobs for user ${userEmail}`);
+                console.log('📋 Sample jobs:', data.jobs.slice(0, 3).map((job: any) => ({
+                    id: job.id,
+                    title: job.title,
+                    company: job.company,
+                    created_at: job.created_at
+                })));
+
+                setJobs(data.jobs);
+                setTotalPages(data.pagination.totalPages || 1);
+                setHasMoreJobs(true);
             } else {
-                setTasks([]);
+                throw new Error(data.error || 'Failed to fetch jobs');
             }
         } catch (err: any) {
-            console.error('Error fetching tasks:', err);
-            setError(err.message || 'Error fetching tasks');
+            console.error('❌ Error fetching jobs:', err);
+            setError(err.message || 'Error fetching jobs');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        if (selectedUser?.email) {
-            fetchTasks();
+        if (userProfile?.email || selectedUser?.email) {
+            // Reset currentStart when user changes or component mounts
+            setCurrentStart(5); // Start with 5 as requested
+            setHasMoreJobs(true);
+            fetchJobs();
         } else {
-            setTasks([]);
+            setJobs([]);
+            // Reset load more state when no user is selected
+            setCurrentStart(5); // Start with 5 as requested
+            setHasMoreJobs(true);
         }
-    }, [selectedUser?.email]);
+    }, [userProfile?.email, selectedUser?.email, page, statusFilter]);
+
+    // Listen for refresh events from job search
+    useEffect(() => {
+        const handleRefresh = () => {
+            console.log('🔄 Refreshing jobs due to job search completion');
+            fetchJobs();
+        };
+        window.addEventListener('refreshTasks', handleRefresh);
+
+        return () => {
+            window.removeEventListener('refreshTasks', handleRefresh);
+        };
+    }, []);
 
     const getStatusBadge = (status: string) => {
-        const baseClasses = 'px-3 py-1 rounded-full text-xs font-bold';
-        switch (status) {
-            case 'completed':
-                return `${baseClasses} bg-emerald-500/20 text-emerald-300 border border-emerald-500/30`;
-            case 'processing':
-                return `${baseClasses} bg-blue-500/20 text-blue-300 border border-blue-500/30 animate-pulse`;
-            case 'pending':
-                return `${baseClasses} bg-yellow-500/20 text-yellow-300 border border-yellow-500/30`;
-            case 'failed':
-                return `${baseClasses} bg-red-500/20 text-red-300 border border-red-500/30`;
-            default:
-                return `${baseClasses} bg-gray-500/20 text-gray-300 border border-gray-500/30`;
+        const statusConfig = {
+            pending: { color: 'bg-yellow-500/20 text-yellow-300', icon: Clock },
+            processing: { color: 'bg-blue-500/20 text-blue-300', icon: Loader2 },
+            completed: { color: 'bg-green-500/20 text-green-300', icon: CheckCircle },
+            failed: { color: 'bg-red-500/20 text-red-300', icon: XCircle }
+        };
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+        const Icon = config.icon;
+        return (
+            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                <Icon className="w-3 h-3" />
+                {status}
+            </span>
+        );
+    };
+
+    const loadMoreJobs = async () => {
+        const userEmail = userProfile?.email || selectedUser?.email;
+        if (!userEmail || loadingMore) return;
+
+        // Check if user can perform job search
+        if (userProfile) {
+            const canPerform = await UserProfileService.canPerformAction(userProfile.user_id, 'job_search');
+            if (!canPerform) {
+                const limits = await UserProfileService.getUserLimits(userProfile.user_id);
+                if (limits) {
+                    if (limits.credits_remaining <= 0) {
+                        toast.error('❌ No credits remaining! Please upgrade your plan or wait for daily reset tomorrow.');
+                    } else if (limits.daily_searches_used >= limits.daily_searches_limit) {
+                        toast.error(`❌ Daily search limit reached! You've used ${limits.daily_searches_used}/${limits.daily_searches_limit} searches today. Come back tomorrow!`);
+                    } else {
+                        toast.error('❌ Cannot perform job search at this time. Please try again later.');
+                    }
+                } else {
+                    toast.error('❌ Cannot perform job search. Please check your account status.');
+                }
+                return;
+            }
+        }
+
+        setLoadingMore(true);
+        try {
+            const payload = {
+                userId: userProfile?.user_id || selectedUser?.user_id || userEmail,
+                keywords: userProfile?.job_title || 'developer',
+                location: userProfile?.location || 'Remote',
+                start: currentStart,
+                f_WT: userProfile?.location?.toLowerCase().includes('remote') ? '2' : '',
+                timespan: 'r86400'
+            };
+
+            console.log('🔄 Loading more jobs with payload:', payload);
+
+            const res = await fetch('/api/load-more-jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            console.log('📄 Load more jobs response:', data);
+
+            if (data.success) {
+                // Update pagination state
+                setCurrentStart(data.pagination.nextStart);
+                setHasMoreJobs(data.pagination.hasMore);
+
+                // If job was queued, wait for it to complete
+                if (data.jobId && data.status === 'pending') {
+                    console.log('⏳ Job queued, waiting for completion...');
+                    toast.success('Job scraping in progress... Please wait.');
+
+                    // Poll for job completion
+                    let attempts = 0;
+                    const maxAttempts = 30; // 30 seconds max
+
+                    while (attempts < maxAttempts) {
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                        attempts++;
+
+                        try {
+                            // Check job status
+                            const statusRes = await fetch(`/api/scraping-status?jobId=${data.jobId}&userId=${userProfile?.user_id || selectedUser?.user_id || userEmail}`);
+                            const statusData = await statusRes.json();
+
+                            console.log(`📊 Job status check ${attempts}:`, statusData);
+
+                            if (statusData.status === 'completed') {
+                                console.log('✅ Job completed, refreshing jobs...');
+                                await fetchJobs();
+                                toast.success(`Successfully loaded new jobs! (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                                return;
+                            } else if (statusData.status === 'failed') {
+                                throw new Error(statusData.error || 'Job processing failed');
+                            }
+                        } catch (statusError) {
+                            console.log('⚠️ Status check failed, continuing...');
+                        }
+                    }
+
+                    // If we reach here, job took too long
+                    console.log('⏰ Job taking too long, refreshing anyway...');
+                    await fetchJobs();
+                    toast.success(`Jobs should be available now (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                } else {
+                    // Direct scraping completed, refresh immediately
+                    console.log('🔄 Direct scraping completed, refreshing jobs...');
+                    await fetchJobs();
+
+                    if (data.pagination.newJobsCount > 0) {
+                        toast.success(`Loaded ${data.pagination.newJobsCount} new jobs! (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                    } else {
+                        toast.success(`No new jobs found in this range (${data.pagination.loadCount}/${data.pagination.maxLoads})`);
+                    }
+                }
+            } else {
+                throw new Error(data.error || 'Failed to load more jobs');
+            }
+        } catch (err: any) {
+            console.error('❌ Error loading more jobs:', err);
+            toast.error(err.message || 'Error loading more jobs');
+        } finally {
+            setLoadingMore(false);
         }
     };
 
-    const startNewTask = async () => {
-        if (!selectedUser?.email) {
-            toast.error('Please select a user first');
-            return;
-        }
-        setLoading(true);
+    const updateJobStatus = async (jobId: number, action: string) => {
         try {
-            const res = await fetch('/api/start-scraping', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: selectedUser.email })
+            const res = await fetch(`/api/jobs?jobId=${jobId}&action=${action}`, {
+                method: 'PUT'
             });
             const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to start task');
-            toast.success('Task started successfully!');
-            fetchTasks(); // Refresh tasks
+            console.log('Update job response:', data);
+            if (data.success) {
+                toast.success(`Job marked as ${action}`);
+                fetchJobs(); // Refresh jobs
+            } else {
+                throw new Error(data.error || 'Failed to update job');
+            }
         } catch (err: any) {
-            toast.error(err.message || 'Error starting task');
-        } finally {
-            setLoading(false);
+            console.error('Error updating job:', err);
+            toast.error(err.message || 'Error updating job');
         }
     };
 
@@ -486,81 +1078,143 @@ function TasksSection({ selectedUser }: { selectedUser: any }) {
                 Tasks
             </motion.h2>
             <div className="rounded-3xl bg-white/5 backdrop-blur-xl border border-cyan-400/20 p-8 min-h-[400px] shadow-2xl">
-                {!selectedUser ? (
+                {!userProfile?.email && !selectedUser?.email ? (
                     <div className="text-center text-gray-400 py-12">
                         <ListChecks className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
-                        <p className="text-lg">Please select a user to view their tasks</p>
+                        <p className="text-lg">Please sign in to view your jobs</p>
                     </div>
                 ) : (
                     <>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
                             <div className="flex-1">
-                                <h3 className="text-lg font-semibold text-cyan-200 mb-1">Tasks for {selectedUser.email}</h3>
-                                <p className="text-sm text-gray-400">{selectedUser.job_title} • {selectedUser.location}</p>
+                                <h3 className="text-lg font-semibold text-cyan-200 mb-1">My Jobs</h3>
+                                <p className="text-sm text-gray-400">
+                                    {userProfile?.job_title || 'Developer'} • {userProfile?.location || 'Remote'}
+                                    {jobs.length > 0 && (
+                                        <span className="ml-2 text-cyan-300">
+                                            • {jobs.length} jobs loaded
+                                            {hasMoreJobs && (
+                                                <span className="text-gray-400"> • Load {Math.floor((currentStart - 5) / 5) + 1}/10 (start: {currentStart})</span>
+                                            )}
+                                        </span>
+                                    )}
+                                </p>
                             </div>
                             <div className="flex gap-2">
-                                <GradientButton onClick={startNewTask} icon={PlusCircle} size="sm" disabled={loading}>
-                                    Start New Task
-                                </GradientButton>
-                                <GradientButton onClick={fetchTasks} icon={RefreshCw} size="sm" variant="outline" disabled={loading}>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                                    className="px-4 py-2 rounded-xl bg-black/30 border border-cyan-400/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                                >
+                                    <option value="all">All Jobs</option>
+                                    <option value="applied">Applied</option>
+                                    <option value="hidden">Hidden</option>
+                                    <option value="interview">Interview</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                                <GradientButton onClick={fetchJobs} icon={RefreshCw} size="sm" variant="outline" disabled={loading}>
                                     Refresh
+                                </GradientButton>
+                                <GradientButton
+                                    onClick={loadMoreJobs}
+                                    icon={loadingMore ? RefreshCw : PlusCircle}
+                                    size="sm"
+                                    variant={hasMoreJobs ? "primary" : "outline"}
+                                    disabled={loadingMore || !hasMoreJobs}
+                                >
+                                    {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
                                 </GradientButton>
                             </div>
                         </div>
                         {loading ? (
-                            <div className="text-center text-gray-400 py-12">Loading tasks...</div>
+                            <div className="text-center text-gray-400 py-12">Loading jobs...</div>
                         ) : error ? (
                             <div className="text-center text-red-400 py-12">{error}</div>
-                        ) : tasks.length === 0 ? (
+                        ) : jobs.length === 0 ? (
                             <div className="text-center text-gray-400 py-12">
                                 <ListChecks className="w-16 h-16 mx-auto mb-4 text-cyan-400/50" />
-                                <p className="text-lg">No tasks found for this user</p>
-                                <p className="text-sm mt-2">Click "Start New Task" to begin scraping</p>
+                                <p className="text-lg">No jobs found for this user</p>
+                                <p className="text-sm mt-2">Start a task to scrape jobs</p>
                             </div>
                         ) : (
-                            <div className="space-y-4">
-                                {tasks.map((task, index) => (
-                                    <motion.div
-                                        key={task.id || index}
-                                        className="bg-white/10 border border-cyan-400/20 rounded-2xl p-6"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                                    >
-                                        <div className="flex items-center justify-between mb-4">
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                    {jobs.map((job: any, index: number) => (
+                                        <motion.div
+                                            key={job.id}
+                                            className="bg-white/10 border border-cyan-400/20 rounded-2xl p-4 hover:bg-white/15 transition-all"
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                                        >
+                                            <div className="mb-3">
+                                                <h4 className="font-semibold text-white text-sm line-clamp-2 mb-1">{job.title}</h4>
+                                                <p className="text-cyan-300 text-xs mb-1">{job.company}</p>
+                                                <p className="text-gray-400 text-xs">{job.location}</p>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <a
+                                                    href={job.job_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-3 py-1 rounded-full hover:from-cyan-400 hover:to-blue-400 transition-all"
+                                                >
+                                                    View Job
+                                                </a>
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={() => updateJobStatus(job.id, 'applied')}
+                                                        className={`text-xs px-2 py-1 rounded ${job.applied === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-300'}`}
+                                                    >
+                                                        Applied
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateJobStatus(job.id, 'hidden')}
+                                                        className={`text-xs px-2 py-1 rounded ${job.hidden === 1 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300'}`}
+                                                    >
+                                                        Hide
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+
+                                {/* Load More Jobs Section */}
+                                {jobs.length > 0 && (
+                                    <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl">
+                                        <div className="flex items-center justify-between">
                                             <div>
-                                                <h4 className="font-semibold text-white">Task {task.id?.split('_')[1] || index + 1}</h4>
-                                                <p className="text-sm text-gray-400">{task.keywords} • {task.location}</p>
+                                                <h4 className="text-lg font-semibold text-cyan-200 mb-1">Load More Jobs</h4>
+                                                <p className="text-sm text-gray-400">
+                                                    {hasMoreJobs
+                                                        ? `Currently loaded ${jobs.length} jobs. Load ${Math.floor((currentStart - 5) / 5) + 1}/10 - Next request will start from position ${currentStart}.`
+                                                        : `All 10 loads completed (${jobs.length} total jobs).`
+                                                    }
+                                                </p>
                                             </div>
-                                            <span className={getStatusBadge(task.status)}>
-                                                {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                                            </span>
+                                            <GradientButton
+                                                onClick={loadMoreJobs}
+                                                icon={loadingMore ? RefreshCw : PlusCircle}
+                                                size="md"
+                                                variant={hasMoreJobs ? "primary" : "outline"}
+                                                disabled={loadingMore || !hasMoreJobs}
+                                            >
+                                                {loadingMore ? 'Loading...' : hasMoreJobs ? `Load More Jobs (${Math.floor((currentStart - 5) / 5) + 1}/10)` : 'All Loads Complete'}
+                                            </GradientButton>
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-gray-400">Created:</span>
-                                                <span className="text-white">{new Date(task.created_at).toLocaleDateString()}</span>
-                                            </div>
-                                            {task.completed_at && (
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-400">Completed:</span>
-                                                    <span className="text-white">{new Date(task.completed_at).toLocaleDateString()}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-gray-400">Jobs Found:</span>
-                                                <span className="text-cyan-300 font-semibold">{task.results?.length || 0}</span>
-                                            </div>
-                                            {task.error && (
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-gray-400">Error:</span>
-                                                    <span className="text-red-400 text-xs">{task.error}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                ))}
-                            </div>
+                                    </div>
+                                )}
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center gap-2 mt-6">
+                                        <GradientButton size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Prev</GradientButton>
+                                        <span className="px-4 py-2 text-cyan-200">Page {page} of {totalPages}</span>
+                                        <GradientButton size="sm" variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</GradientButton>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </>
                 )}
@@ -569,6 +1223,7 @@ function TasksSection({ selectedUser }: { selectedUser: any }) {
     );
 }
 
+// Scraped Jobs Section Component
 function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -589,7 +1244,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
         setError(null);
         try {
             const params = new URLSearchParams({
-                userId: selectedUser.email,
+                userId: selectedUser.user_id || selectedUser.email,
                 page: page.toString(),
                 limit: '12'
             });
@@ -647,7 +1302,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
         setLoadingMore(true);
         try {
             const payload = {
-                userId: selectedUser.email,
+                userId: selectedUser.user_id || selectedUser.email,
                 keywords: selectedUser.job_title || 'developer',
                 location: selectedUser.location || 'Remote',
                 start: currentStart,
@@ -686,7 +1341,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
 
                         try {
                             // Check job status
-                            const statusRes = await fetch(`/api/scraping-status?jobId=${data.jobId}&userId=${selectedUser.email}`);
+                            const statusRes = await fetch(`/api/scraping-status?jobId=${data.jobId}&userId=${selectedUser.user_id || selectedUser.email}`);
                             const statusData = await statusRes.json();
 
                             console.log(`📊 Job status check ${attempts}:`, statusData);
@@ -911,41 +1566,43 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     );
 }
 
-function TopBar({ selectedUser, onRefresh, onLogout }: { selectedUser: any, onRefresh: () => void, onLogout: () => void }) {
-    return (
-        <div className="sticky top-0 z-30 w-full bg-black/30 backdrop-blur-2xl border-b border-white/10 flex items-center justify-between px-6 py-4 mb-4 shadow-lg">
-            <div className="flex items-center gap-4">
-                <span className="text-cyan-300 font-mono text-lg">
-                    {selectedUser ? selectedUser.email : 'No user selected'}
-                </span>
-            </div>
-            <div className="flex gap-2">
-                <GradientButton size="sm" variant="outline" onClick={onRefresh}>Refresh</GradientButton>
-                <GradientButton size="sm" variant="primary" onClick={onLogout}>Logout</GradientButton>
-            </div>
-        </div>
-    );
-}
-
-function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated }: { selected: string, selectedUser: any, onSelectUser: (user: any) => void, onUserCreated: () => void }) {
+function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade }: {
+    selected: string,
+    selectedUser: any,
+    onSelectUser: (user: any) => void,
+    onUserCreated: () => void,
+    userProfile: UserProfile | null,
+    setUserProfile: (profile: UserProfile | null) => void,
+    onUpgrade: (plan: 'lifetime' | 'pro') => Promise<void>
+}) {
     return (
         <section className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 overflow-y-auto">
             <div className="max-w-7xl mx-auto">
                 <AnimatePresence mode="wait">
+                    {selected === 'job-search' && (
+                        <JobSearchSection userProfile={userProfile} setUserProfile={setUserProfile} />
+                    )}
+                    {selected === 'jobs' && (
+                        <ScrapedJobsSection selectedUser={selectedUser} />
+                    )}
+                    {selected === 'automation' && (
+                        <AutomationSection userProfile={userProfile} />
+                    )}
+                    {selected === 'tasks' && (
+                        <TasksSection selectedUser={selectedUser} userProfile={userProfile} />
+                    )}
+                    {selected === 'pricing' && (
+                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} />
+                    )}
+                    {selected === 'proxy' && (
+                        <ProxyTest />
+                    )}
+                    {/* Admin sections */}
                     {selected === 'users' && (
                         <UsersSection onSelectUser={onSelectUser} selectedUser={selectedUser} />
                     )}
                     {selected === 'create' && (
                         <CreateUserSection onUserCreated={onUserCreated} />
-                    )}
-                    {selected === 'tasks' && (
-                        <TasksSection selectedUser={selectedUser} />
-                    )}
-                    {selected === 'jobs' && (
-                        <ScrapedJobsSection selectedUser={selectedUser} />
-                    )}
-                    {selected === 'proxy' && (
-                        <ProxyTest />
                     )}
                 </AnimatePresence>
             </div>
@@ -954,17 +1611,196 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated }: 
 }
 
 export default function DashboardPage() {
-    const [selected, setSelected] = useState('users');
+    const { user, isLoaded, isSignedIn } = useUser();
+    const router = useRouter();
+    const [selected, setSelected] = useState('job-search');
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [usersRefreshKey, setUsersRefreshKey] = useState(0);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-    useEffect(() => {
-        const savedTab = localStorage.getItem('dashboard-tab');
-        if (savedTab && SIDEBAR_ITEMS.some(item => item.key === savedTab)) {
-            setSelected(savedTab);
+    // Load user profile function
+    const loadUserProfile = async () => {
+        if (!user?.id) return;
+
+        try {
+            console.log('🔍 Loading user profile for user:', user.id);
+
+            const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
+            if (!email) {
+                console.error('❌ No email found for user');
+                toast.error('❌ No email found for user. Please check your account settings.');
+                return;
+            }
+
+            console.log('🔍 User email:', email);
+
+            const profile = await UserProfileService.getOrCreateUserProfile(user.id, email);
+
+            if (profile) {
+                console.log('✅ User profile loaded successfully');
+                setUserProfile(profile);
+            } else {
+                console.error('❌ Failed to load or create user profile');
+                toast.error('❌ Failed to load user profile. Please try refreshing the page.');
+            }
+        } catch (error: any) {
+            console.error('❌ Error loading user profile:', error);
+            toast.error('❌ Error loading user profile: ' + (error.message || 'Unknown error'));
         }
-    }, []);
+    };
+
+    // Test function to debug Supabase connection
+    const testSupabaseConnection = async () => {
+        try {
+            console.log('🔍 Testing Supabase connection...');
+            const response = await fetch('/api/test-supabase');
+            const result = await response.json();
+            console.log('🔍 Supabase test result:', result);
+        } catch (error) {
+            console.error('❌ Supabase test error:', error);
+        }
+    };
+
+    // Test function to reset credits
+    const testCreditReset = async () => {
+        try {
+            console.log('🔄 Testing credit reset...');
+
+            const response = await fetch('/api/reset-credits', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log('✅ Credit reset successful:', result);
+                toast.success('✅ Credit reset successful');
+
+                // Reload user profile to see updated credits
+                await loadUserProfile();
+            } else {
+                console.error('❌ Credit reset failed:', result);
+                toast.error('❌ Credit reset failed: ' + result.error);
+            }
+        } catch (error: any) {
+            console.error('❌ Error testing credit reset:', error);
+            toast.error('❌ Error testing credit reset: ' + error.message);
+        }
+    };
+
+    // Test function to check credit status
+    const testCreditStatus = async () => {
+        try {
+            console.log('💳 Checking credit status...');
+
+            const response = await fetch('/api/reset-credits', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log('✅ Credit status:', result);
+                toast.success('✅ Credit status retrieved. Check console for details.');
+            } else {
+                console.error('❌ Credit status check failed:', result);
+                toast.error('❌ Credit status check failed: ' + result.error);
+            }
+        } catch (error: any) {
+            console.error('❌ Error checking credit status:', error);
+            toast.error('❌ Error checking credit status: ' + error.message);
+        }
+    };
+
+    // Test function to test user profile
+    const testUserProfile = async () => {
+        try {
+            if (!user?.id) {
+                toast.error('❌ No user ID available');
+                return;
+            }
+
+            const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
+            if (!email) {
+                toast.error('❌ No email available');
+                return;
+            }
+
+            console.log('👤 Testing user profile for:', user.id, email);
+            console.log('👤 Current userProfile state:', userProfile);
+
+            const response = await fetch('/api/test-user-profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: user.id,
+                    email: email
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log('✅ User profile test result:', result);
+                toast.success('✅ User profile test completed. Check console for details.');
+
+                // Reload user profile if test was successful
+                if (result.finalProfile === 'Success') {
+                    await loadUserProfile();
+                }
+            } else {
+                console.error('❌ User profile test failed:', result);
+                toast.error('❌ User profile test failed: ' + result.error);
+            }
+        } catch (error: any) {
+            console.error('❌ Error testing user profile:', error);
+            toast.error('❌ Error testing user profile: ' + error.message);
+        }
+    };
+
+    // Redirect if not signed in
+    useEffect(() => {
+        if (isLoaded && !isSignedIn) {
+            router.push('/sign-in');
+        }
+    }, [isLoaded, isSignedIn, router]);
+
+    // Load saved tab and user profile
+    useEffect(() => {
+        if (isSignedIn) {
+            const savedTab = localStorage.getItem('dashboard-tab');
+            if (savedTab && SIDEBAR_ITEMS.some(item => item.key === savedTab)) {
+                setSelected(savedTab);
+            }
+            loadUserProfile();
+        }
+    }, [isSignedIn, user?.id]);
+
+    // Show loading while Clerk is loading
+    if (!isLoaded) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-[#0a182e] via-[#0e223a] to-[#1a2a3d] flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+                    <p className="text-cyan-200">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show loading while not signed in
+    if (!isSignedIn) {
+        return null;
+    }
 
     const handleTabSelect = (tab: string) => {
         setSelected(tab);
@@ -979,6 +1815,20 @@ export default function DashboardPage() {
     const handleLogout = () => {
         // Implement logout logic here (e.g., clear session, redirect)
         window.location.href = '/';
+    };
+
+    const handleUpgrade = async (plan: 'lifetime' | 'pro') => {
+        if (!userProfile || !user?.id) return;
+
+        try {
+            const success = await UserProfileService.upgradePlan(user.id, plan, 'manual');
+            if (success) {
+                // Reload user profile to get updated data
+                await loadUserProfile();
+            }
+        } catch (error) {
+            console.error('Error upgrading plan:', error);
+        }
     };
 
     return (
@@ -1001,11 +1851,48 @@ export default function DashboardPage() {
                 />
                 <div className="flex-1 flex flex-col">
                     <TopBar selectedUser={selectedUser} onRefresh={handleRefresh} onLogout={handleLogout} />
+
+                    {/* Debug Test Buttons - Remove these after fixing */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg m-4 space-y-2">
+                            <button
+                                onClick={testSupabaseConnection}
+                                className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-sm font-medium mr-2"
+                            >
+                                🔍 Test Supabase Connection
+                            </button>
+                            <button
+                                onClick={testCreditReset}
+                                className="bg-green-500 text-black px-4 py-2 rounded-lg text-sm font-medium mr-2"
+                            >
+                                🔄 Test Credit Reset
+                            </button>
+                            <button
+                                onClick={testCreditStatus}
+                                className="bg-blue-500 text-black px-4 py-2 rounded-lg text-sm font-medium mr-2"
+                            >
+                                💳 Check Credit Status
+                            </button>
+                            <button
+                                onClick={testUserProfile}
+                                className="bg-purple-500 text-black px-4 py-2 rounded-lg text-sm font-medium"
+                            >
+                                👤 Test User Profile
+                            </button>
+                            <p className="text-yellow-200 text-xs mt-2">
+                                Check browser console for debug info
+                            </p>
+                        </div>
+                    )}
+
                     <DashboardMain
                         selected={selected}
                         selectedUser={selectedUser}
                         onSelectUser={setSelectedUser}
                         onUserCreated={handleUserCreated}
+                        userProfile={userProfile}
+                        setUserProfile={setUserProfile}
+                        onUpgrade={handleUpgrade}
                         key={usersRefreshKey}
                     />
                 </div>

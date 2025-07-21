@@ -84,16 +84,105 @@ async function getWithRetry(url: string, config: ScrapingConfig, retries: number
 function parseJobCards(html: string): JobCard[] {
     const $ = cheerio.load(html);
     const jobs: JobCard[] = [];
-    $('.job-search-card').each((_, el) => {
-        const title = $(el).find('h3.base-search-card__title').text().trim();
-        const company = $(el).find('h4.base-search-card__subtitle a').text().trim();
-        const location = $(el).find('.job-search-card__location').text().trim();
-        const date = $(el).find('time').attr('datetime') || '';
-        const job_url = $(el).find('a.base-card__full-link').attr('href') || '';
-        if (title && company) {
-            jobs.push({ title, company, location, date, job_url, applied: 0, hidden: 0, interview: 0, rejected: 0 });
+
+    console.log('🔍 Parsing HTML for job cards...');
+    console.log('📄 HTML length:', html.length);
+    console.log('📄 First 500 chars:', html.substring(0, 500));
+
+    // Updated selectors for current LinkedIn structure
+    const selectors = [
+        'li', // LinkedIn now uses li elements for job cards
+        '.job-search-card',
+        '.base-search-card',
+        '.job-search-card__container',
+        '.base-card',
+        '[data-entity-urn]' // LinkedIn job cards have this attribute
+    ];
+
+    for (const selector of selectors) {
+        const elements = $(selector);
+        console.log(`🔍 Trying selector "${selector}": found ${elements.length} elements`);
+
+        elements.each((index, el) => {
+            const $el = $(el);
+
+            // Try multiple title selectors
+            const title = $el.find('h3, h2, .base-search-card__title, .job-search-card__title, [data-testid="job-card-title"]').first().text().trim();
+
+            // Try multiple company selectors
+            const company = $el.find('h4, .base-search-card__subtitle a, .job-search-card__company, [data-testid="job-card-company"]').first().text().trim();
+
+            // Try multiple location selectors
+            const location = $el.find('.job-search-card__location, .base-search-card__location, [data-testid="job-card-location"]').first().text().trim();
+
+            // Try multiple URL selectors
+            const job_url = $el.find('a[href*="linkedin.com/jobs"], .base-card__full-link, [data-testid="job-card-link"]').first().attr('href') || '';
+
+            // Get date if available
+            const date = $el.find('time').attr('datetime') || new Date().toISOString();
+
+            console.log(`📋 Job ${index + 1}:`, {
+                title: title.substring(0, 50),
+                company: company.substring(0, 30),
+                location: location.substring(0, 30),
+                hasUrl: !!job_url
+            });
+
+            if (title && company && job_url && title.length > 3 && company.length > 1) {
+                jobs.push({
+                    title,
+                    company,
+                    location,
+                    date,
+                    job_url,
+                    applied: 0,
+                    hidden: 0,
+                    interview: 0,
+                    rejected: 0
+                });
+            }
+        });
+
+        if (jobs.length > 0) {
+            console.log(`✅ Found ${jobs.length} jobs using selector: ${selector}`);
+            break;
         }
-    });
+    }
+
+    if (jobs.length === 0) {
+        console.log('⚠️ No jobs found with any selector, trying comprehensive fallback parsing...');
+
+        // More comprehensive fallback
+        $('*').each((_, el) => {
+            const $el = $(el);
+            const text = $el.text().trim();
+
+            // Look for job-like patterns
+            if (text.length > 10 && text.length < 200) {
+                const title = $el.find('h3, h2, h1, .title, [class*="title"]').text().trim();
+                const company = $el.find('h4, h5, .company, .subtitle, [class*="company"]').text().trim();
+                const location = $el.find('.location, .place, [class*="location"]').text().trim();
+                const job_url = $el.find('a[href*="linkedin.com/jobs"], a[href*="/jobs/"]').attr('href') || '';
+
+                if (title && company && job_url && title.length > 5 && company.length > 2) {
+                    console.log(`🎯 Found job via fallback: ${title} at ${company}`);
+                    jobs.push({
+                        title,
+                        company,
+                        location,
+                        date: new Date().toISOString(),
+                        job_url,
+                        applied: 0,
+                        hidden: 0,
+                        interview: 0,
+                        rejected: 0
+                    });
+                }
+            }
+        });
+    }
+
+    console.log(`📊 Total jobs parsed: ${jobs.length}`);
     return jobs;
 }
 
@@ -183,7 +272,17 @@ export async function scrapeLinkedInJobs(params: JobSearchParams, userConfig?: P
 
 export async function saveJobsToDatabase(jobs: JobCard[], userId?: string) {
     if (!jobs.length) return;
+
+    console.log(`💾 Attempting to upsert ${jobs.length} jobs for user: ${userId}`);
+    console.log(`📋 Sample job to save:`, {
+        title: jobs[0].title.substring(0, 50) + '...',
+        company: jobs[0].company,
+        location: jobs[0].location,
+        job_url: jobs[0].job_url.substring(0, 50) + '...'
+    });
+
     try {
+        // Try upsert first with the correct constraint
         const { data, error } = await supabase.from('jobs').upsert(
             jobs.map(job => ({
                 ...job,
@@ -191,12 +290,49 @@ export async function saveJobsToDatabase(jobs: JobCard[], userId?: string) {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })),
-            { onConflict: 'job_url' }
+            { onConflict: 'job_url' } // Use the unique constraint on job_url
         );
-        if (error) throw error;
+
+        if (error) {
+            console.log(`❌ Supabase upsert error:`, error);
+            throw error;
+        }
+
+        console.log(`✅ Successfully upserted ${jobs.length} jobs`);
         return data;
-    } catch (error) {
-        throw error;
+
+    } catch (error: any) {
+        console.log(`🔄 Falling back to individual inserts...`);
+
+        // Fallback: insert jobs one by one, ignoring duplicates
+        let savedCount = 0;
+        for (const job of jobs) {
+            try {
+                const { error: insertError } = await supabase.from('jobs').insert({
+                    ...job,
+                    user_id: userId,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+
+                if (insertError) {
+                    // If it's a duplicate key error, that's fine
+                    if (insertError.code === '23505') { // Unique violation
+                        console.log(`⚠️ Job already exists: ${job.title} at ${job.company}`);
+                    } else {
+                        console.log(`❌ Error inserting job ${job.title}:`, insertError);
+                    }
+                } else {
+                    console.log(`✅ Saved job: ${job.title} at ${job.company}`);
+                    savedCount++;
+                }
+            } catch (insertError: any) {
+                console.log(`❌ Failed to insert job ${job.title}:`, insertError.message);
+            }
+        }
+
+        console.log(`✅ Database save completed: ${savedCount} jobs saved`);
+        return { savedCount };
     }
 }
 

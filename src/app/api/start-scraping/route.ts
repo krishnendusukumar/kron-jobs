@@ -2,14 +2,36 @@ import { NextResponse } from "next/server";
 import { jobProcessor } from "@/lib/job-processor";
 import { supabase } from "@/lib/supabase";
 import { scrapeAndSaveJobs } from '@/lib/linkedin-scraper';
+import { UserProfileService } from '@/lib/user-profile-service';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { userId } = body;
+        const { userId, isCronExecution = false } = body;
 
         if (!userId) {
             return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+        }
+
+        // Get or create user profile
+        const userProfile = await UserProfileService.getOrCreateUserProfile(userId, userId);
+        if (!userProfile) {
+            return NextResponse.json({ error: "Failed to get user profile" }, { status: 500 });
+        }
+
+        // Check if user has credits remaining (unless it's a cron execution that already consumed credit)
+        if (!isCronExecution) {
+            if (userProfile.credits_remaining <= 0) {
+                return NextResponse.json({
+                    error: "No credits remaining. Credits reset daily at midnight UTC."
+                }, { status: 403 });
+            }
+
+            // Consume credit for manual scraping
+            const creditConsumed = await UserProfileService.consumeCredit(userId);
+            if (!creditConsumed) {
+                return NextResponse.json({ error: "Failed to consume credit" }, { status: 500 });
+            }
         }
 
         // Get user preferences
@@ -46,6 +68,9 @@ export async function POST(request: Request) {
             success: true,
             taskId,
             jobs, // Return jobs for debugging
+            jobsFound: jobs?.length || 0,
+            jobsAdded: jobs?.length || 0,
+            creditsRemaining: userProfile.credits_remaining - (isCronExecution ? 0 : 1),
             message: "Scraping task added to queue and jobs scraped."
         });
 

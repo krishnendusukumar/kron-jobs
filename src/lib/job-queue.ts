@@ -39,6 +39,8 @@ class JobQueue {
     }
 
     async addJob(jobData: Omit<ScrapingJob, 'id' | 'status' | 'createdAt' | 'updatedAt'>): Promise<string> {
+        console.log('🔍 JobQueue.addJob called with:', jobData);
+
         const job: Omit<ScrapingJob, 'id'> = {
             ...jobData,
             status: 'pending',
@@ -48,28 +50,35 @@ class JobQueue {
 
         try {
             // Try to use the existing job_tasks table instead of scraping_jobs
+            const insertData = {
+                id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                user_id: jobData.userId,
+                keywords: jobData.keywords,
+                location: jobData.location,
+                f_wt: jobData.f_WT || '',
+                timespan: jobData.timespan || 'r86400',
+                status: 'pending',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                completed_at: null,
+                error: null,
+                results: null
+            };
+
+            console.log('🔍 Inserting job into job_tasks table:', insertData);
+
             const { data, error } = await supabase
                 .from('job_tasks')
-                .insert({
-                    id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    user_id: jobData.userId,
-                    keywords: jobData.keywords,
-                    location: jobData.location,
-                    f_wt: jobData.f_WT || '',
-                    timespan: jobData.timespan || 'r86400',
-                    status: 'pending',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                    completed_at: null,
-                    error: null,
-                    results: null
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
             if (error) {
+                console.error('❌ Error inserting job into job_tasks:', error);
                 throw new Error(`Failed to add job to queue: ${error.message}`);
             }
+
+            console.log('✅ Job added to job_tasks table:', data);
 
             // Execute the job immediately since we don't have a background processor
             console.log('🚀 Executing job immediately...');
@@ -243,24 +252,37 @@ class JobQueue {
     }
 
     private async executeJobDirectly(job: ScrapingJob): Promise<void> {
+        console.log(`🚀 Executing job directly: ${job.id}`);
+
         try {
             // Update job status to processing
             if (!job.id.startsWith('temp-')) {
                 await this.updateJobStatusInJobTasks(job.id, 'processing');
             }
 
-            const { scrapeLinkedInJobs } = await import('./linkedin-scraper');
+            console.log(`🔍 Starting LinkedIn scraping for: ${job.keywords} in ${job.location}`);
 
-            const jobs = await scrapeLinkedInJobs({
+            const { scrapeLinkedInJobs } = await import('./linkedin-scraper');
+            console.log('✅ LinkedIn scraper module imported successfully');
+
+            const scrapingParams = {
                 keywords: job.keywords,
                 location: job.location,
                 f_WT: job.f_WT,
                 timespan: job.timespan,
                 start: job.start,
-            });
+            };
+
+            console.log('📋 Scraping parameters:', scrapingParams);
+
+            const jobs = await scrapeLinkedInJobs(scrapingParams);
+
+            console.log(`📊 Scraped ${jobs.length} jobs, now saving to database...`);
 
             const { saveJobsToDatabase } = await import('./job-database');
             const savedCount = await saveJobsToDatabase(job.userId, jobs);
+
+            console.log(`✅ Database save completed: ${savedCount} jobs saved`);
 
             // Update job status to completed
             if (!job.id.startsWith('temp-')) {
