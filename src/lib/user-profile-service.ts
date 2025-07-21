@@ -29,7 +29,7 @@ export interface UserUsage {
     user_id: string;
     usage_type: 'job_search' | 'cron_execution' | 'api_call';
     credits_consumed: number;
-    details?: any;
+    details?: Record<string, unknown>;
     created_at: string;
 }
 
