@@ -309,10 +309,48 @@ export class UserProfileService {
         try {
             console.log('🔍 Getting or creating user profile for:', userId, 'with email:', email);
 
-            // First, try to get existing profile
+            // First, try to get existing profile by user_id
             let profile = await this.getUserProfile(userId);
 
             if (!profile) {
+                // If no profile found by user_id, check if a profile exists with this email
+                console.log('ℹ️ No profile found by user_id, checking for existing profile by email...');
+
+                const { data: existingProfile, error: emailCheckError } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('email', email)
+                    .single();
+
+                if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+                    console.error('❌ Error checking for existing profile by email:', emailCheckError);
+                }
+
+                if (existingProfile) {
+                    console.log('🔄 Found existing profile with same email, updating user_id...');
+
+                    // Update the existing profile with the new user_id
+                    const { data: updatedProfile, error: updateError } = await supabase
+                        .from('user_profiles')
+                        .update({
+                            user_id: userId,
+                            clerk_user_id: userId,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('email', email)
+                        .select()
+                        .single();
+
+                    if (updateError) {
+                        console.error('❌ Error updating existing profile:', updateError);
+                        return null;
+                    }
+
+                    console.log('✅ Existing profile updated with new user_id');
+                    return updatedProfile;
+                }
+
+                // No existing profile found, create new one
                 console.log('ℹ️ No existing profile found, creating new profile...');
                 profile = await this.createUserProfile(userId, email);
 
