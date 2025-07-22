@@ -28,7 +28,7 @@ export default function Navbar({ currentPage = 'home', userProfile }: NavbarProp
                         <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                             <Search className="w-6 h-6 text-white" />
                         </div>
-                        <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+                        <span className="text-2xl font-bold text-white">
                             KronJobs
                         </span>
                     </motion.div>
@@ -46,7 +46,7 @@ export default function Navbar({ currentPage = 'home', userProfile }: NavbarProp
                             transition={{ duration: 0.5, delay: 0.1 }}
                         >
                             Home
-                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 group-hover:w-full"></span>
+                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#0a182e] transition-all duration-300 group-hover:w-full"></span>
                         </motion.a>
                         <motion.a
                             href="/dashboard"
@@ -59,7 +59,7 @@ export default function Navbar({ currentPage = 'home', userProfile }: NavbarProp
                             transition={{ duration: 0.5, delay: 0.2 }}
                         >
                             Dashboard
-                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 group-hover:w-full"></span>
+                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#0a182e] transition-all duration-300 group-hover:w-full"></span>
                         </motion.a>
                     </div>
 
@@ -87,7 +87,7 @@ export default function Navbar({ currentPage = 'home', userProfile }: NavbarProp
                     {/* CTA Button */}
                     {currentPage !== 'dashboard' && (
                         <motion.button
-                            className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
+                            className="bg-white text-black px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-gray-100 hover:text-black cursor-pointer"
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.5 }}
@@ -95,7 +95,7 @@ export default function Navbar({ currentPage = 'home', userProfile }: NavbarProp
                             whileTap={{ scale: 0.95 }}
                         >
                             <div className="flex items-center space-x-2">
-                                <Rocket className="w-4 h-4" />
+                                <Rocket className="w-4 h-4 text-black" />
                                 <span>Start Free</span>
                             </div>
                         </motion.button>

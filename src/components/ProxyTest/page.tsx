@@ -74,7 +74,7 @@ export default function ProxyTest() {
 
     if (loading) {
         return (
-            <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl p-6">
+            <div className="bg-white text-black border border-cyan-400/20 rounded-2xl p-6">
                 <div className="flex items-center justify-center">
                     <RefreshCw className="w-6 h-6 text-cyan-400 animate-spin" />
                     <span className="ml-2 text-cyan-200">Loading proxy stats...</span>
@@ -84,7 +84,7 @@ export default function ProxyTest() {
     }
 
     return (
-        <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl p-6">
+        <div className="bg-white text-black border border-cyan-400/20 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-cyan-200">Bright Data Proxy</h3>
                 <div className="flex items-center space-x-2">

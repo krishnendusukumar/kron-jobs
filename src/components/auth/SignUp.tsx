@@ -66,7 +66,7 @@ export default function SignUpPage() {
             >
                 <div className="text-center mb-8">
                     <motion.h1
-                        className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2"
+                        className="text-4xl font-bold text-white mb-2"
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.1 }}
@@ -91,7 +91,7 @@ export default function SignUpPage() {
                                 card: "bg-transparent shadow-none p-0",
                                 headerTitle: "text-cyan-200 text-xl font-semibold",
                                 headerSubtitle: "text-gray-400 text-sm",
-                                formButtonPrimary: "bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200",
+                                formButtonPrimary: "bg-[#0a182e] text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 hover:bg-[#162a4d]",
                                 formFieldInput: "bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3",
                                 formFieldLabel: "text-cyan-200 text-sm font-medium",
                                 footerActionLink: "text-cyan-400 hover:text-cyan-300 transition-colors",

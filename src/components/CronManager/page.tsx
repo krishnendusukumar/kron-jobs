@@ -209,8 +209,8 @@ const CronManager: React.FC<CronManagerProps> = ({ userProfile, className = "" }
                                     key={time}
                                     onClick={() => setSelectedTime(time)}
                                     className={`px-4 py-2 rounded-lg border transition-all ${selectedTime === time
-                                            ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400'
-                                            : 'border-white/20 text-gray-300 hover:border-white/40 hover:text-white'
+                                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400'
+                                        : 'border-white/20 text-gray-300 hover:border-white/40 hover:text-white'
                                         }`}
                                 >
                                     {time}
@@ -221,7 +221,7 @@ const CronManager: React.FC<CronManagerProps> = ({ userProfile, className = "" }
                             <button
                                 onClick={handleAddCronJob}
                                 disabled={isAddingJob}
-                                className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="bg-[#0a182e] text-white px-6 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:bg-[#162a4d]"
                             >
                                 {isAddingJob ? (
                                     <>

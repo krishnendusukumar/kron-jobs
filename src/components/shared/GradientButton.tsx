@@ -34,7 +34,7 @@ export default function GradientButton({
     };
 
     const variantClasses = {
-        primary: "bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 hover:from-cyan-400 hover:to-purple-500",
+        primary: "bg-[#0a182e] text-white shadow-xl hover:bg-[#162a4d]",
         secondary: "bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg hover:shadow-gray-500/25 hover:from-gray-500 hover:to-gray-600",
         outline: "border-2 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-400/70"
     };

@@ -91,7 +91,7 @@ function Sidebar({ selected, onSelect, isMobileOpen, setIsMobileOpen }: {
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex sticky top-16 h-[calc(100vh-4rem)] w-64 bg-gradient-to-b from-[#0a182e] to-[#1a2a3d] backdrop-blur-md border-r border-cyan-400/30 flex-col py-8 px-4 z-20">
                 <div className="mb-8">
-                    <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold tracking-tight text-white">
                         KronJobs
                     </h2>
                     <p className="text-sm text-gray-400 mt-2">AI-Powered Job Search</p>
@@ -102,7 +102,7 @@ function Sidebar({ selected, onSelect, isMobileOpen, setIsMobileOpen }: {
                             key={item.key}
                             onClick={() => onSelect(item.key)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-medium text-left ${selected === item.key
-                                ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-200 shadow-lg border border-cyan-400/30'
+                                ? 'bg-[#0a182e] text-white shadow-lg border border-cyan-400/30'
                                 : 'hover:bg-white/10 text-cyan-100 hover:text-cyan-200'
                                 }`}
                             whileHover={{ scale: 1.02, x: 4 }}
@@ -136,7 +136,7 @@ function Sidebar({ selected, onSelect, isMobileOpen, setIsMobileOpen }: {
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
                         >
                             <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                                <h2 className="text-2xl font-bold tracking-tight text-white">
                                     KronJobs Admin
                                 </h2>
                                 <button
@@ -155,7 +155,7 @@ function Sidebar({ selected, onSelect, isMobileOpen, setIsMobileOpen }: {
                                             setIsMobileOpen(false);
                                         }}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-medium text-left ${selected === item.key
-                                            ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-200 shadow-lg border border-cyan-400/30'
+                                            ? 'bg-[#0a182e] text-white shadow-lg border border-cyan-400/30'
                                             : 'hover:bg-white/10 text-cyan-100 hover:text-cyan-200'
                                             }`}
                                         whileHover={{ scale: 1.02 }}
@@ -360,7 +360,7 @@ function JobSearchSection({ userProfile, setUserProfile }: { userProfile: UserPr
         >
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-4">
+                <h1 className="text-4xl font-bold text-white mb-4">
                     Job Search
                 </h1>
                 <p className="text-gray-400 text-lg">
@@ -369,7 +369,7 @@ function JobSearchSection({ userProfile, setUserProfile }: { userProfile: UserPr
 
                 {/* Credits Display */}
                 {userProfile && (
-                    <div className="mt-4 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl border border-cyan-400/20">
+                    <div className="mt-4 p-4 bg-[#0a182e] rounded-2xl border border-cyan-400/20">
                         <div className="flex items-center justify-center gap-4">
                             <div className="text-center">
                                 <p className="text-cyan-200 text-sm">Credits Remaining</p>
@@ -481,7 +481,7 @@ function JobSearchSection({ userProfile, setUserProfile }: { userProfile: UserPr
                                 disabled={isSearching || !userProfile || userProfile.credits_remaining <= 0}
                                 className={`px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 inline-flex items-center space-x-3 ${isSearching || !userProfile || userProfile.credits_remaining <= 0
                                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white shadow-xl hover:shadow-cyan-500/25'
+                                    : 'bg-[#0a182e] text-white shadow-xl hover:bg-[#162a4d]'
                                     }`}
                             >
                                 {isSearching ? (
@@ -550,7 +550,7 @@ function AutomationSection({ userProfile }: { userProfile: UserProfile | null })
                 transition={{ duration: 0.3 }}
             >
                 <motion.h2
-                    className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                    className="text-4xl font-bold mb-6 text-white"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
@@ -576,7 +576,7 @@ function AutomationSection({ userProfile }: { userProfile: UserProfile | null })
             transition={{ duration: 0.3 }}
         >
             <motion.h2
-                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                className="text-4xl font-bold mb-6 text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
@@ -644,7 +644,7 @@ function UsersSection({ onSelectUser, selectedUser }: { onSelectUser: (user: any
             transition={{ duration: 0.3 }}
         >
             <motion.h2
-                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                className="text-4xl font-bold mb-6 text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
@@ -784,7 +784,7 @@ function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
             transition={{ duration: 0.3 }}
         >
             <motion.h2
-                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                className="text-4xl font-bold mb-6 text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
@@ -1072,7 +1072,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
             transition={{ duration: 0.3 }}
         >
             <motion.h2
-                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                className="text-4xl font-bold mb-6 text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
@@ -1159,7 +1159,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                                     href={job.job_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-xs bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-3 py-1 rounded-full hover:from-cyan-400 hover:to-blue-400 transition-all"
+                                                    className="text-xs bg-[#0a182e] text-white px-3 py-1 rounded-full hover:bg-[#162a4d] transition-all"
                                                 >
                                                     View Job
                                                 </a>
@@ -1184,7 +1184,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
 
                                 {/* Load More Jobs Section */}
                                 {jobs.length > 0 && (
-                                    <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl">
+                                    <div className="mt-6 p-4 bg-[#0a182e] border border-cyan-400/20 rounded-2xl">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h4 className="text-lg font-semibold text-cyan-200 mb-1">Load More Jobs</h4>
@@ -1415,7 +1415,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
             transition={{ duration: 0.3 }}
         >
             <motion.h2
-                className="text-4xl font-bold mb-6 bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+                className="text-4xl font-bold mb-6 text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
@@ -1502,7 +1502,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                                     href={job.job_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-xs bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-3 py-1 rounded-full hover:from-cyan-400 hover:to-blue-400 transition-all"
+                                                    className="text-xs bg-[#0a182e] text-white px-3 py-1 rounded-full hover:bg-[#162a4d] transition-all"
                                                 >
                                                     View Job
                                                 </a>
@@ -1527,7 +1527,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
 
                                 {/* Load More Jobs Section */}
                                 {jobs.length > 0 && (
-                                    <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl">
+                                    <div className="mt-6 p-4 bg-[#0a182e] border border-cyan-400/20 rounded-2xl">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h4 className="text-lg font-semibold text-cyan-200 mb-1">Load More Jobs</h4>

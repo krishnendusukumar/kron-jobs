@@ -52,8 +52,9 @@ export default function UserProfileDropdown({ userProfile }: { userProfile: User
                         <div><b>Signup:</b> {userProfile.sign_up_date ? new Date(userProfile.sign_up_date).toLocaleDateString() : "N/A"}</div>
                     </div>
                     <button
+                        className="w-full py-2 rounded-xl bg-[#0a182e] text-white font-semibold shadow hover:bg-[#162a4d] transition"
                         onClick={() => signOut(() => window.location.href = '/sign-in')}
-                        className="w-full py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold shadow hover:from-cyan-600 hover:to-purple-600 transition"
+                        aria-label="Log out"
                     >
                         Log out
                     </button>

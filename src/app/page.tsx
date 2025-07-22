@@ -214,13 +214,7 @@ const FloatingBadges = () => {
 // Hero Section Component
 const HeroSection = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) => {
   // Helper for navigation
-  const handleProtectedNav = (url: string) => {
-    if (isSignedIn) {
-      router.push(url);
-    } else {
-      router.push('/sign-in');
-    }
-  };
+
 
   return (
     <section className="relative z-10 min-h-screen flex items-center justify-center">
@@ -237,11 +231,11 @@ const HeroSection = ({ isSignedIn, router }: { isSignedIn: boolean; router: any 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <span className="bg-gradient-to-r from-white via-cyan-100 to-blue-100 bg-clip-text text-transparent">
+            <span className="text-white">
               Automated Job Alerts.
             </span>
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <span className="text-white">
               Orbiting Your Inbox.
             </span>
           </motion.h1>
@@ -262,20 +256,34 @@ const HeroSection = ({ isSignedIn, router }: { isSignedIn: boolean; router: any 
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             <motion.button
-              className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 inline-flex items-center space-x-3 cursor-pointer"
+              className="bg-[#0a182e] text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-[#162a4d] cursor-pointer"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => handleProtectedNav('/dashboard')}
+              onClick={() => {
+                if (isSignedIn) {
+                  router.push('/dashboard');
+                } else {
+                  router.push('/sign-in');
+                }
+              }}
             >
-              <Rocket className="w-6 h-6" />
-              <span>Start Free</span>
+              <span className="font-semibold">Start Free</span>
             </motion.button>
 
             <motion.button
               className="border border-white/30 hover:border-white/50 text-white px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 backdrop-blur-sm hover:bg-white/10 inline-flex items-center space-x-3 cursor-pointer"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => handleProtectedNav('/dashboard')}
+              onClick={() => {
+                if (isSignedIn) {
+                  router.push('/dashboard');
+                } else {
+                  router.push('/sign-in');
+                }
+              }}
             >
               <Eye className="w-6 h-6" />
               <span>View Live Jobs</span>
@@ -368,7 +376,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
             viewport={{ once: true }}
           >
             <motion.h2
-              className="text-3xl sm:text-4xl font-bold text-white mb-8 text-center bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+              className="text-3xl sm:text-4xl font-bold mb-8 text-center text-white"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
@@ -658,6 +666,7 @@ const Footer = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) =>
   );
 };
 
+
 // Jobs Dashboard Component
 const JobsDashboard = ({ email }: { email: string }) => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -697,10 +706,10 @@ const JobsDashboard = ({ email }: { email: string }) => {
     <section className="relative z-10 py-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Your Scraped Jobs</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white">Your Scraped Jobs</h2>
           <button
             onClick={fetchJobs}
-            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-2 font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all cursor-pointer"
+            className="rounded-full bg-[#0a182e] text-white px-6 py-2 font-semibold shadow hover:bg-[#162a4d] cursor-pointer"
           >
             Refresh
           </button>
@@ -745,7 +754,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
                             href={job.url || job.link || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 text-xs font-semibold shadow hover:from-cyan-400 hover:to-blue-400 transition-all cursor-pointer"
+                            className="rounded-full bg-[#0a182e] text-white px-4 py-2 text-xs font-semibold shadow hover:bg-[#162a4d] transition-all cursor-pointer"
                           >
                             View Job
                           </a>
@@ -867,10 +876,10 @@ const KronJobsLanding = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-[#0a182e] rounded-xl flex items-center justify-center shadow-lg">
                 <Search className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold text-white">
                 KronJobs
               </span>
             </motion.div>
@@ -900,15 +909,21 @@ const KronJobsLanding = () => {
                 Dashboard
               </motion.a>
               <motion.button
-                className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
+                className="bg-[#0a182e] text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-[#162a4d] cursor-pointer"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => handleProtectedNav('/dashboard')}
+                onClick={() => {
+                  if (isSignedIn) {
+                    router.push('/dashboard');
+                  } else {
+                    router.push('/sign-in');
+                  }
+                }}
               >
-                Start Free
+                <span className="font-semibold">Start Free</span>
               </motion.button>
             </div>
           </div>
@@ -946,7 +961,7 @@ const KronJobsLanding = () => {
         </div>
       </nav>
       {/* Main Content */}
-      <HeroSection isSignedIn={isSignedIn} router={router} />
+      <HeroSection isSignedIn={Boolean(isSignedIn)} router={router} />
       <div ref={formRef} className="relative z-10 py-20">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           {/* Left: Selling/Pain Point */}
@@ -973,7 +988,7 @@ const KronJobsLanding = () => {
       <FeatureCards />
       <PricingSection showFAQ={false} />
       <HowItWorksSteps />
-      <Footer isSignedIn={isSignedIn} router={router} />
+      <Footer isSignedIn={Boolean(isSignedIn)} router={router} />
       {/* Mobile Sticky CTA */}
       <motion.div
         className="fixed bottom-4 left-4 right-4 z-50 md:hidden"
@@ -985,7 +1000,13 @@ const KronJobsLanding = () => {
           className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-6 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => handleProtectedNav('/dashboard')}
+          onClick={() => {
+            if (isSignedIn) {
+              router.push('/dashboard');
+            } else {
+              router.push('/sign-in');
+            }
+          }}
         >
           <div className="flex items-center justify-center space-x-2">
             <Rocket className="w-5 h-5" />

@@ -110,7 +110,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                     className="text-center mb-16"
                 >
                     <motion.div
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-full px-6 py-2 mb-6"
+                        className="inline-flex items-center gap-2 bg-white text-black backdrop-blur-sm border border-cyan-400/30 rounded-full px-6 py-2 mb-6"
                         whileHover={{ scale: 1.05 }}
                         transition={{ type: "spring", stiffness: 400, damping: 10 }}
                     >
@@ -171,7 +171,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                         }}
                                         transition={{ type: "spring", stiffness: 400, damping: 10 }}
                                     >
-                                        <div className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/25">
+                                        <div className="bg-[#0a182e] text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
                                             <Star className="w-4 h-4" />
                                             MOST POPULAR
                                         </div>
@@ -181,7 +181,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                 {/* Coming Soon Badge */}
                                 {plan.isComingSoon && (
                                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                                        <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-purple-600 text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                                        <div className="bg-[#0a182e] text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
                                             <Clock className="w-4 h-4" />
                                             COMING SOON
                                         </div>
@@ -211,8 +211,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                     {/* Pricing */}
                                     <div className="flex items-center justify-center gap-3 mb-3">
                                         <motion.span
-                                            className={`text-4xl font-black ${plan.isPopular ? 'text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text' : 'text-white'
-                                                }`}
+                                            className={`text-4xl font-black text-white`}
                                             animate={{
                                                 scale: hoveredPlan === plan.id ? 1.05 : 1,
                                             }}
@@ -256,7 +255,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                                 transition={{ delay: index * 0.1 + featureIndex * 0.1 }}
                                             >
                                                 <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${plan.isPopular
-                                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                                                    ? 'bg-[#0a182e] text-white'
                                                     : 'bg-slate-700'
                                                     }`}>
                                                     <Check className={`w-3 h-3 ${plan.isPopular ? 'text-white' : 'text-cyan-400'
@@ -284,10 +283,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                         <motion.button
                                             onClick={() => handleUpgrade(plan.id)}
                                             disabled={isUpgrading}
-                                            className={`w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg ${plan.isPopular
-                                                ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400 text-white shadow-cyan-500/25'
-                                                : 'bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 text-white shadow-slate-500/25'
-                                                } border-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            className={`w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg bg-[#0a182e] text-white border-0 hover:bg-[#162a4d] disabled:opacity-50 disabled:cursor-not-allowed`}
                                             whileHover={{
                                                 scale: 1.02,
                                                 boxShadow: plan.isPopular
@@ -355,7 +351,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                     <Shield className="w-6 h-6 text-cyan-400" />
                                     Your Current Plan
                                 </h4>
-                                <div className="text-3xl font-black text-transparent bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text">
+                                <div className="text-3xl font-black text-white">
                                     {plans.find(p => p.id === getCurrentPlan())?.name}
                                 </div>
                             </div>
@@ -423,7 +419,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                     whileHover={{ scale: 1.02 }}
                                 >
                                     <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-blue-400"></div>
+                                        <div className="w-2 h-2 rounded-full bg-[#0a182e]"></div>
                                         {faq.question}
                                     </h4>
                                     <p className="text-slate-300 leading-relaxed">
