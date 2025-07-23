@@ -15,7 +15,7 @@ export interface UserProfile {
     cron_times: string[];
     max_cron_jobs: number;
     max_daily_fetches: number;
-    upgrade_source: 'stripe' | 'manual' | null;
+    upgrade_source: 'stripe' | 'manual' | 'dodo' | null;
     stripe_customer_id?: string;
     stripe_subscription_id?: string;
     last_sign_in?: string;
@@ -280,7 +280,7 @@ export class UserProfileService {
         }
     }
 
-    static async upgradePlan(userId: string, plan: 'lifetime' | 'pro', source: 'stripe' | 'manual' = 'manual'): Promise<boolean> {
+    static async upgradePlan(userId: string, plan: 'lifetime' | 'pro', source: 'stripe' | 'manual' | 'dodo' = 'manual'): Promise<boolean> {
         try {
             const { error } = await supabase
                 .from('user_profiles')

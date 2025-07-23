@@ -12,6 +12,11 @@ interface PricingSectionProps {
     showFAQ?: boolean;
 }
 
+interface DodoPaymentResponse {
+    checkout_url: string;
+    session_id: string;
+}
+
 const PricingSection: React.FC<PricingSectionProps> = ({
     userProfile,
     onUpgrade,
@@ -30,22 +35,35 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         setUpgradeError(null);
 
         try {
-            if (planId === 'lifetime') {
-                // For now, we'll use manual upgrade
-                // In production, this would integrate with Stripe
-                const success = await UserProfileService.upgradePlan(
-                    userProfile.user_id,
-                    'lifetime',
-                    'manual'
-                );
-
-                if (success) {
-                    onUpgrade?.('lifetime');
-                } else {
-                    setUpgradeError('Failed to upgrade plan. Please try again.');
+            // Dodo payment integration for paid plans
+            if (planId === 'lifetime' || planId === 'pro') {
+                // Get the product URL from environment
+                const productUrl = process.env.NEXT_PUBLIC_DODO_PRODUCT_URL;
+                
+                if (!productUrl) {
+                    setUpgradeError('Payment configuration is missing. Please contact support.');
+                    setIsUpgrading(false);
+                    return;
                 }
-            } else if (planId === 'pro') {
-                setUpgradeError('Pro plan is coming soon! Join the waitlist.');
+
+                console.log('🚀 Redirecting to Dodo payment:', productUrl);
+
+                // Redirect to Dodo product URL
+                window.location.href = productUrl;
+                return;
+            }
+
+            // Manual upgrade fallback (for testing)
+            const success = await UserProfileService.upgradePlan(
+                userProfile.user_id,
+                planId as 'lifetime' | 'pro',
+                'manual'
+            );
+
+            if (success) {
+                onUpgrade?.(planId as 'lifetime' | 'pro');
+            } else {
+                setUpgradeError('Failed to upgrade plan. Please try again.');
             }
         } catch (error) {
             setUpgradeError('An error occurred. Please try again.');

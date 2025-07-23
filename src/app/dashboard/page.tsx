@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Users, PlusCircle, ListChecks, Brain, Search, Menu, X, ArrowDown, Rocket, Eye, RefreshCw, ExternalLink, Wifi, Clock, CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react';
-import { useUser } from '@clerk/nextjs';
+import { Search, Loader2, Users, Settings, BarChart3, Plus, RefreshCw, Eye, CheckCircle, XCircle, Clock, Filter, ChevronDown, ChevronUp, User, LogOut, CreditCard, Calendar, Target, Zap, Shield, Globe, Star, TrendingUp, Building2, MapPin, Mail, Phone, ExternalLink, Trash2, Edit3, Save, X, AlertCircle, Check, ArrowRight, Download, Upload, Database, Server, Network, Wifi, WifiOff, Activity, BarChart, PieChart, LineChart, AreaChart, ListChecks, Brain } from 'lucide-react';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useClerk } from '@clerk/nextjs';
 import Navbar from '@/components/shared/Navbar';
 import Footer from '@/components/shared/Footer';
 import GradientButton from '@/components/shared/GradientButton';
@@ -827,7 +826,7 @@ function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
                             <label htmlFor="fresher-checkbox" className="text-cyan-200 text-sm">Fresher</label>
                         </div>
                     </div>
-                    <GradientButton type="submit" size="lg" icon={PlusCircle} disabled={loading}>
+                    <GradientButton type="submit" size="lg" icon={Plus} disabled={loading}>
                         {loading ? 'Creating...' : 'Create User'}
                     </GradientButton>
                 </form>
@@ -1123,7 +1122,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                 </GradientButton>
                                 <GradientButton
                                     onClick={loadMoreJobs}
-                                    icon={loadingMore ? RefreshCw : PlusCircle}
+                                    icon={loadingMore ? RefreshCw : Plus}
                                     size="sm"
                                     variant={hasMoreJobs ? "primary" : "outline"}
                                     disabled={loadingMore || !hasMoreJobs}
@@ -1201,7 +1200,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                             </div>
                                             <GradientButton
                                                 onClick={loadMoreJobs}
-                                                icon={loadingMore ? RefreshCw : PlusCircle}
+                                                icon={loadingMore ? RefreshCw : Plus}
                                                 size="md"
                                                 variant={hasMoreJobs ? "primary" : "outline"}
                                                 disabled={loadingMore || !hasMoreJobs}
@@ -1466,7 +1465,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                 </GradientButton>
                                 <GradientButton
                                     onClick={loadMoreJobs}
-                                    icon={loadingMore ? RefreshCw : PlusCircle}
+                                    icon={loadingMore ? RefreshCw : Plus}
                                     size="sm"
                                     variant={hasMoreJobs ? "primary" : "outline"}
                                     disabled={loadingMore || !hasMoreJobs}
@@ -1544,7 +1543,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                             </div>
                                             <GradientButton
                                                 onClick={loadMoreJobs}
-                                                icon={loadingMore ? RefreshCw : PlusCircle}
+                                                icon={loadingMore ? RefreshCw : Plus}
                                                 size="md"
                                                 variant={hasMoreJobs ? "primary" : "outline"}
                                                 disabled={loadingMore || !hasMoreJobs}
@@ -1601,14 +1600,30 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
 }
 
 export default function DashboardPage() {
-    const { user, isLoaded, isSignedIn } = useUser();
+    const { isSignedIn, user } = useUser();
     const { signOut } = useClerk();
     const router = useRouter();
     const [selected, setSelected] = useState('job-search');
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
-    const [usersRefreshKey, setUsersRefreshKey] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [usersRefreshKey, setUsersRefreshKey] = useState(0);
+    const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+    const [paymentPlan, setPaymentPlan] = useState<string>('');
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    // Check for payment success in URL
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = urlParams.get('payment');
+        const plan = urlParams.get('plan');
+
+        if (paymentStatus === 'success' && plan) {
+            setShowPaymentSuccess(true);
+            setPaymentPlan(plan);
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
 
     // Load user profile function
     const loadUserProfile = async () => {
@@ -1760,10 +1775,10 @@ export default function DashboardPage() {
 
     // Redirect if not signed in
     useEffect(() => {
-        if (isLoaded && !isSignedIn) {
+        if (isSignedIn && !user) {
             router.push('/sign-in');
         }
-    }, [isLoaded, isSignedIn, router]);
+    }, [isSignedIn, user, router]);
 
     // Load saved tab and user profile
     useEffect(() => {
@@ -1777,18 +1792,6 @@ export default function DashboardPage() {
     }, [isSignedIn, user?.id]);
 
     // Show loading while Clerk is loading
-    if (!isLoaded) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-[#0a182e] via-[#0e223a] to-[#1a2a3d] flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-                    <p className="text-cyan-200">Loading...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Show loading while not signed in
     if (!isSignedIn) {
         return null;
     }
@@ -1847,6 +1850,25 @@ export default function DashboardPage() {
             </main>
             <Footer />
             <Toaster position="top-center" />
+
+            {/* Payment Success Toast */}
+            {showPaymentSuccess && (
+                <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-green-500/95 to-emerald-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-green-400/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+                        <div>
+                            <div className="font-bold text-sm">Payment Successful!</div>
+                            <div className="text-xs opacity-90">Your {paymentPlan} plan has been activated</div>
+                        </div>
+                        <button
+                            onClick={() => setShowPaymentSuccess(false)}
+                            className="ml-4 text-white/70 hover:text-white"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 } 
