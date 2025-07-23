@@ -15,6 +15,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import { UserProfileService, UserProfile } from '../../lib/user-profile-service';
 import PricingSection from '../../components/PricingSection/page';
 import CronManager from '../../components/CronManager/page';
+import LocationAutocomplete from '@/components/LocationAutocomplete';
 
 type SidebarItem = {
     key: string;
@@ -410,13 +411,10 @@ function JobSearchSection({ userProfile, setUserProfile }: { userProfile: UserPr
                                 <label className="block text-cyan-200 text-sm font-medium mb-2">
                                     Location *
                                 </label>
-                                <input
-                                    type="text"
-                                    name="location"
+                                <LocationAutocomplete
                                     value={formData.location}
-                                    onChange={handleInputChange}
+                                    onChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
                                     placeholder="e.g., New York, NY or Remote"
-                                    className="w-full bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 rounded-xl px-4 py-3"
                                     required
                                 />
                             </div>
@@ -800,7 +798,13 @@ function CreateUserSection({ onUserCreated }: { onUserCreated: () => void }) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-cyan-200 mb-1">Location</label>
-                            <input name="location" value={form.location} onChange={handleChange} required={!form.remote} disabled={form.remote} className="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-60" placeholder="e.g. Berlin" />
+                            <LocationAutocomplete
+                                value={form.location}
+                                onChange={(value) => setForm(prev => ({ ...prev, location: value }))}
+                                placeholder="e.g. Berlin"
+                                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-cyan-400/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-60"
+                                required={!form.remote}
+                            />
                         </div>
                         <div className="flex items-center gap-2 sm:col-span-2">
                             <input type="checkbox" name="remote" checked={form.remote} onChange={handleChange} id="remote-checkbox" className="accent-cyan-500 w-4 h-4" />

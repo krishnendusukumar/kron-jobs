@@ -151,12 +151,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                 } backdrop-blur-xl`}></div>
 
                             {/* Border Glow Effect */}
-                            <div className={`absolute inset-0 rounded-3xl p-[1px] ${plan.isPopular
-                                ? 'bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400'
-                                : hoveredPlan === plan.id
-                                    ? 'bg-gradient-to-r from-slate-600 to-slate-500'
-                                    : 'bg-slate-700/50'
-                                } transition-all duration-500`}>
+                            <div className={`absolute inset-0 rounded-3xl p-[1px] bg-cyan-700/90 transition-all duration-500`}>
                                 <div className="w-full h-full rounded-3xl bg-slate-900/90 backdrop-blur-xl"></div>
                             </div>
 

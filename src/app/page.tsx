@@ -11,6 +11,8 @@ import {
   Rocket, Orbit, Satellite, Sparkles, Eye
 } from 'lucide-react';
 
+import LocationAutocomplete from '@/components/LocationAutocomplete';
+
 // Import the pricing component
 import PricingSection from '../components/PricingSection/page';
 
@@ -235,7 +237,7 @@ const HeroSection = ({ isSignedIn, router }: { isSignedIn: boolean; router: any 
               Automated Job Alerts.
             </span>
             <br />
-            <span className="text-white">
+            <span className="text-cyan-700/90">
               Orbiting Your Inbox.
             </span>
           </motion.h1>
@@ -256,7 +258,7 @@ const HeroSection = ({ isSignedIn, router }: { isSignedIn: boolean; router: any 
             transition={{ duration: 0.8, delay: 0.6 }}
           >
             <motion.button
-              className="bg-[#0a182e] text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-[#162a4d] cursor-pointer"
+              className="bg-cyan-700/90 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-cyan-600/90 cursor-pointer"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
@@ -388,7 +390,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {[
                   { name: 'jobTitle', icon: Target, placeholder: 'e.g., Frontend Developer', label: 'Job Title' },
-                  { name: 'location', icon: MapPin, placeholder: 'San Francisco, Remote', label: 'Location' },
+                  { name: 'location', icon: MapPin, placeholder: 'San Francisco, Remote', label: 'Location', isLocation: true },
                   { name: 'email', icon: Mail, placeholder: 'your@email.com', label: 'Email' }
                 ].map((field, index) => (
                   <motion.div
@@ -400,18 +402,32 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
                   >
                     <label className="block text-sm font-medium text-gray-300 mb-2">{field.label}</label>
                     <div className="relative group">
-                      <field.icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-400 transition-colors" />
-                      <input
-                        type={field.name === 'email' ? 'email' : 'text'}
-                        name={field.name}
-                        value={formData[field.name as keyof FormData]}
-                        onChange={handleInputChange}
-                        className={`w-full pl-12 pr-4 py-4 bg-white/10 border-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300 ${errors[field.name as keyof FormErrors]
-                          ? 'border-red-500/50 focus:border-red-500/50'
-                          : 'border-cyan-500/30'
-                          }`}
-                        placeholder={field.placeholder}
-                      />
+                      {field.isLocation ? (
+                        <LocationAutocomplete
+                          value={formData[field.name as keyof FormData]}
+                          onChange={(value) => setFormData({ ...formData, [field.name]: value })}
+                          placeholder={field.placeholder}
+                          className={`w-full pl-12 pr-4 py-4 bg-white/10 border-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300 ${errors[field.name as keyof FormErrors]
+                            ? 'border-red-500/50 focus:border-red-500/50'
+                            : 'border-cyan-500/30'
+                            }`}
+                        />
+                      ) : (
+                        <>
+                          <field.icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-blue-400 transition-colors" />
+                          <input
+                            type={field.name === 'email' ? 'email' : 'text'}
+                            name={field.name}
+                            value={formData[field.name as keyof FormData]}
+                            onChange={handleInputChange}
+                            className={`w-full pl-12 pr-4 py-4 bg-white/10 border-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-white placeholder-gray-400 backdrop-blur-sm transition-all duration-300 ${errors[field.name as keyof FormErrors]
+                              ? 'border-red-500/50 focus:border-red-500/50'
+                              : 'border-cyan-500/30'
+                              }`}
+                            placeholder={field.placeholder}
+                          />
+                        </>
+                      )}
                       {errors[field.name as keyof FormErrors] && (
                         <motion.p
                           className="text-red-400 text-sm mt-1"
@@ -436,7 +452,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
                 <motion.button
                   type="submit"
                   disabled={!!isSubmitting}
-                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 inline-flex items-center space-x-3 cursor-pointer"
+                  className="bg-cyan-700/90 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:bg-cyan-600/90 inline-flex items-center space-x-3 cursor-pointer"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -466,15 +482,13 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
       <AnimatePresence>
         {showSuccess && (
           <motion.div
-            className="fixed top-4 right-4 z-50 bg-emerald-500/90 backdrop-blur-sm border border-emerald-400/30 rounded-lg px-6 py-4 shadow-lg"
-            initial={{ opacity: 0, x: 100, scale: 0.8 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 100, scale: 0.8 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-emerald-100" />
-              <span className="text-white font-medium">Job scan started successfully!</span>
+            className="fixed top-4 right-4 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl z-50 animate-in slide-in-from-right duration-300 border border-cyan-400/30">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+              <div>
+                <div className="font-bold text-sm">Success!</div>
+                <div className="text-xs opacity-90">Job scan started successfully!</div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -638,7 +652,7 @@ const Footer = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) =>
           {/* Contact Us - Button Fix */}
           <button
             onClick={() => setShowContactToast(true)}
-            className="rounded-full bg-[#232329] text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            className="rounded-full bg-cyan-700/90 text-gray-300 hover:text-cyan-400 px-4 py-2 text-sm font-medium transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
             Contact us
           </button>
@@ -648,7 +662,7 @@ const Footer = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) =>
             href="https://x.com/i_m_krrishnendu"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[#232329] text-cyan-400 hover:bg-cyan-700/20 px-3 py-2 text-sm font-medium transition-all flex items-center hover:scale-105 active:scale-95 cursor-pointer"
+            className="rounded-full bg-cyan-700/90 text-cyan-400 hover:bg-cyan-700/20 px-3 py-2 text-sm font-medium transition-all flex items-center hover:scale-105 active:scale-95 cursor-pointer"
             aria-label="Twitter"
           >
             <Twitter className="w-5 h-5" />
@@ -658,8 +672,14 @@ const Footer = ({ isSignedIn, router }: { isSignedIn: boolean; router: any }) =>
 
       {/* Contact Toast */}
       {showContactToast && (
-        <div className="fixed bottom-24 right-8 z-50 bg-cyan-700/90 text-white px-6 py-4 rounded-xl shadow-lg flex items-center space-x-3 max-w-xs w-auto pointer-events-auto">
-          <span>Write to me at support@kron-job.com</span>
+        <div className="fixed top-4 right-4 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl z-50 animate-in slide-in-from-right duration-300 border border-cyan-400/30">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+            <div>
+              <div className="font-bold text-sm">Success!</div>
+              <div className="text-xs opacity-90">Message sent successfully</div>
+            </div>
+          </div>
         </div>
       )}
     </footer>
@@ -709,7 +729,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
           <h2 className="text-3xl sm:text-4xl font-bold text-white">Your Scraped Jobs</h2>
           <button
             onClick={fetchJobs}
-            className="rounded-full bg-[#0a182e] text-white px-6 py-2 font-semibold shadow hover:bg-[#162a4d] cursor-pointer"
+            className="rounded-full bg-cyan-700/90 text-white px-6 py-2 font-semibold shadow hover:bg-cyan-600/90 cursor-pointer"
           >
             Refresh
           </button>
@@ -754,7 +774,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
                             href={job.url || job.link || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded-full bg-[#0a182e] text-white px-4 py-2 text-xs font-semibold shadow hover:bg-[#162a4d] transition-all cursor-pointer"
+                            className="rounded-full bg-cyan-700/90 text-white px-4 py-2 text-xs font-semibold shadow hover:bg-cyan-600/90 transition-all cursor-pointer"
                           >
                             View Job
                           </a>
@@ -909,7 +929,7 @@ const KronJobsLanding = () => {
                 Dashboard
               </motion.a>
               <motion.button
-                className="bg-[#0a182e] text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-[#162a4d] cursor-pointer"
+                className="bg-cyan-700/90 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-cyan-600/90 cursor-pointer"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
