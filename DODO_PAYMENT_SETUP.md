@@ -14,7 +14,7 @@ Add these to your `.env.local` file and Vercel environment variables:
 
 ```bash
 # Dodo Payment Gateway
-DODO_WEBHOOK_SECRET=your_webhook_signing_key_here
+DODO_WEBHOOK_KEY=your_webhook_signing_key_here
 NEXT_PUBLIC_DODO_PRODUCT_ID=your_dodo_product_id_here
 
 # Optional: For advanced features

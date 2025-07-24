@@ -1,68 +1,52 @@
 import { NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
+import { Webhook } from "standardwebhooks";
+import { headers } from "next/headers";
 import { UserProfileService } from '@/lib/user-profile-service';
 import { supabase } from '@/lib/supabase';
 
-export const POST = async (req: Request) => {
+const webhook = new Webhook(process.env.DODO_WEBHOOK_KEY!);
+
+export async function POST(request: Request) {
+    const headersList = await headers();
+
     try {
         console.log('🔍 DODO WEBHOOK RECEIVED');
 
-        // Get the raw body for signature verification
-        const rawBody = await req.text();
-        const signature = req.headers.get("webhook-signature");
-        const secret = process.env.DODO_WEBHOOK_SECRET;
-
-        console.log('📋 Headers received:', Object.keys(Object.fromEntries(req.headers.entries())));
+        const rawBody = await request.text();
         console.log('📄 Body length:', rawBody.length);
-        console.log('🔑 Signature header value:', signature);
-        console.log('🔐 Secret configured:', secret ? 'YES' : 'NO');
 
-        if (!signature || !secret) {
-            console.log('❌ Missing signature or secret');
-            return NextResponse.json({ error: 'Missing signature or secret' }, { status: 400 });
-        }
+        const webhookHeaders = {
+            "webhook-id": headersList.get("webhook-id") || "",
+            "webhook-signature": headersList.get("webhook-signature") || "",
+            "webhook-timestamp": headersList.get("webhook-timestamp") || "",
+        };
 
-        // Verify the webhook signature (HMAC-SHA256) - Svix format
-        const hmac = createHmac("sha256", secret);
-        hmac.update(rawBody, "utf8");
-        const digest = hmac.digest("base64"); // Use base64 to match Svix format
+        console.log('📋 Webhook headers:', webhookHeaders);
 
-        console.log('🔐 Computed digest (base64):', digest);
-        console.log('🔑 Received signature:', signature);
+        // Verify the webhook signature using standardwebhooks
+        await webhook.verify(rawBody, webhookHeaders);
+        console.log('✅ Webhook verified successfully');
 
-        // Extract the actual signature from the "v1,signature" format
-        const signatureParts = signature.split(',');
-        const actualSignature = signatureParts.length > 1 ? signatureParts[1] : signature;
-
-        console.log('🔑 Extracted signature:', actualSignature);
-        console.log('📏 Signature length match:', actualSignature.length === digest.length);
-
-        // Use timingSafeEqual for security
-        const isValid = timingSafeEqual(Buffer.from(actualSignature), Buffer.from(digest));
-
-        console.log('✅ Signature valid:', isValid);
-
-        if (!isValid) {
-            console.log('❌ Invalid signature - rejecting webhook');
-            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-        }
-
-        // Parse the event
-        const event = JSON.parse(rawBody);
-        console.log('📊 Event type:', event.type);
-        console.log('📊 Event data keys:', Object.keys(event.data || {}));
+        const payload = JSON.parse(rawBody);
+        console.log('📊 Event type:', payload.type);
+        console.log('📊 Event data keys:', Object.keys(payload.data || {}));
 
         // Handle different event types
-        switch (event.type) {
+        switch (payload.type) {
             case 'payment.succeeded': {
                 console.log('💰 Payment succeeded event received');
 
-                const data = event.data || {};
+                const data = payload.data || {};
                 const userId = data?.metadata?.userId;
                 const plan = data?.metadata?.plan || 'lifetime';
                 const email = data?.customer?.email;
 
                 console.log('🔍 Payment details:', { userId, plan, email });
+
+                if (!email) {
+                    console.error('❌ Missing customer email in payload');
+                    return NextResponse.json({ error: 'Missing customer email' }, { status: 400 });
+                }
 
                 if (userId) {
                     // Try to find user by userId first
@@ -149,7 +133,7 @@ export const POST = async (req: Request) => {
             }
 
             default: {
-                console.log('ℹ️ Unhandled event type:', event.type);
+                console.log('ℹ️ Unhandled event type:', payload.type);
                 break;
             }
         }
@@ -159,6 +143,12 @@ export const POST = async (req: Request) => {
 
     } catch (error) {
         console.error('❌ Error processing webhook:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json(
+            {
+                error: 'Webhook processing failed',
+                details: error instanceof Error ? error.message : 'Unknown error',
+            },
+            { status: 400 }
+        );
     }
 }; 
