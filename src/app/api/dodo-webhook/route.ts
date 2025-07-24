@@ -5,32 +5,27 @@ import { supabase } from '@/lib/supabase';
 
 export const POST = async (req: Request) => {
     try {
-        // 1. Read raw body
-        const rawBody = await req.text();
+        console.log('🔍 DODO WEBHOOK RECEIVED');
 
-        // 2. Get signature from headers
+        // Get the raw body for signature verification
+        const rawBody = await req.text();
         const signature = req.headers.get("webhook-signature");
         const secret = process.env.DODO_WEBHOOK_SECRET;
 
-        // DEBUG: Log everything for troubleshooting
-        console.log('🔍 DODO WEBHOOK DEBUG START');
-        console.log('📋 All headers:', Object.fromEntries(req.headers.entries()));
+        console.log('📋 Headers received:', Object.keys(Object.fromEntries(req.headers.entries())));
+        console.log('📄 Body length:', rawBody.length);
         console.log('🔑 Signature header value:', signature);
         console.log('🔐 Secret configured:', secret ? 'YES' : 'NO');
-        console.log('📄 Raw body length:', rawBody.length);
-        console.log('📄 Raw body preview:', rawBody.substring(0, 200) + '...');
 
         if (!signature || !secret) {
             console.log('❌ Missing signature or secret');
-            console.log('   Signature present:', !!signature);
-            console.log('   Secret present:', !!secret);
-            return NextResponse.json({ message: "Missing signature or secret" }, { status: 400 });
+            return NextResponse.json({ error: 'Missing signature or secret' }, { status: 400 });
         }
 
-        // 3. Verify signature (HMAC-SHA256) - Fix for Svix format
+        // Verify the webhook signature (HMAC-SHA256) - Svix format
         const hmac = createHmac("sha256", secret);
         hmac.update(rawBody, "utf8");
-        const digest = hmac.digest("base64"); // Use base64 instead of hex
+        const digest = hmac.digest("base64"); // Use base64 to match Svix format
 
         console.log('🔐 Computed digest (base64):', digest);
         console.log('🔑 Received signature:', signature);
@@ -49,39 +44,45 @@ export const POST = async (req: Request) => {
 
         if (!isValid) {
             console.log('❌ Invalid signature - rejecting webhook');
-            return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
         }
 
-        // 4. Parse event
+        // Parse the event
         const event = JSON.parse(rawBody);
-        console.log('📊 Parsed event type:', event.type);
+        console.log('📊 Event type:', event.type);
         console.log('📊 Event data keys:', Object.keys(event.data || {}));
-        console.log('🔍 DODO WEBHOOK DEBUG END');
 
-        // 5. Handle event types
+        // Handle different event types
         switch (event.type) {
-            case "payment.succeeded": {
-                // Restore business logic for successful payment
+            case 'payment.succeeded': {
+                console.log('💰 Payment succeeded event received');
+
                 const data = event.data || {};
                 const userId = data?.metadata?.userId;
                 const plan = data?.metadata?.plan || 'lifetime';
                 const email = data?.customer?.email;
-                console.log('Dodo payment.succeeded event:', { userId, plan, email });
+
+                console.log('🔍 Payment details:', { userId, plan, email });
+
                 if (userId) {
+                    // Try to find user by userId first
                     const { data: userProfile, error } = await supabase
                         .from('user_profiles')
                         .select('user_id, email, plan')
                         .eq('user_id', userId)
                         .single();
+
                     if (error) {
                         console.error('❌ Error finding user by userId:', error);
                     }
+
                     if (userProfile) {
                         const upgradeSuccess = await UserProfileService.upgradePlan(
                             userProfile.user_id,
                             plan as 'lifetime' | 'pro',
                             'dodo'
                         );
+
                         if (upgradeSuccess) {
                             console.log('✅ User plan upgraded successfully:', {
                                 userId: userProfile.user_id,
@@ -90,25 +91,30 @@ export const POST = async (req: Request) => {
                             });
                         } else {
                             console.error('❌ Failed to upgrade user plan');
+                            return NextResponse.json({ error: 'Failed to upgrade plan' }, { status: 500 });
                         }
                     } else {
-                        console.error('❌ No user profile found for payment:', event);
+                        console.error('❌ No user profile found for userId:', userId);
                     }
                 } else if (email) {
+                    // Fallback to email lookup
                     const { data: userProfile, error } = await supabase
                         .from('user_profiles')
                         .select('user_id, email, plan')
                         .eq('email', email)
                         .single();
+
                     if (error) {
                         console.error('❌ Error finding user by email:', error);
                     }
+
                     if (userProfile) {
                         const upgradeSuccess = await UserProfileService.upgradePlan(
                             userProfile.user_id,
                             plan as 'lifetime' | 'pro',
                             'dodo'
                         );
+
                         if (upgradeSuccess) {
                             console.log('✅ User plan upgraded successfully (by email):', {
                                 userId: userProfile.user_id,
@@ -117,24 +123,42 @@ export const POST = async (req: Request) => {
                             });
                         } else {
                             console.error('❌ Failed to upgrade user plan (by email)');
+                            return NextResponse.json({ error: 'Failed to upgrade plan' }, { status: 500 });
                         }
                     } else {
-                        console.error('❌ No user profile found for payment (by email):', event);
+                        console.error('❌ No user profile found for email:', email);
+                        return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
                     }
+                } else {
+                    console.error('❌ No userId or email found in payment data');
+                    return NextResponse.json({ error: 'No user identifier found' }, { status: 400 });
                 }
                 break;
             }
-            case "payment.failed":
-                // Your logic for failed payment
+
+            case 'payment.failed': {
+                console.log('❌ Payment failed event received');
+                // Handle failed payment (optional)
                 break;
-            default:
-                // Handle other event types
+            }
+
+            case 'dispute.created': {
+                console.log('⚠️ Dispute created event received');
+                // Handle dispute (optional)
                 break;
+            }
+
+            default: {
+                console.log('ℹ️ Unhandled event type:', event.type);
+                break;
+            }
         }
 
-        return NextResponse.json({ message: "Webhook processed successfully" }, { status: 200 });
+        console.log('✅ Webhook processed successfully');
+        return NextResponse.json({ success: true, message: 'Webhook processed successfully' });
+
     } catch (error) {
-        console.error("Error processing webhook:", error);
-        return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+        console.error('❌ Error processing webhook:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }; 
