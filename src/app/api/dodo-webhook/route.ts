@@ -27,19 +27,23 @@ export const POST = async (req: Request) => {
             return NextResponse.json({ message: "Missing signature or secret" }, { status: 400 });
         }
 
-        // 3. Verify signature (HMAC-SHA256)
+        // 3. Verify signature (HMAC-SHA256) - Fix for Svix format
         const hmac = createHmac("sha256", secret);
         hmac.update(rawBody, "utf8");
-        const digest = hmac.digest("hex");
+        const digest = hmac.digest("base64"); // Use base64 instead of hex
 
-        console.log('🔐 Computed digest:', digest);
+        console.log('🔐 Computed digest (base64):', digest);
         console.log('🔑 Received signature:', signature);
-        console.log('📏 Signature length match:', signature.length === digest.length);
+
+        // Extract the actual signature from the "v1,signature" format
+        const signatureParts = signature.split(',');
+        const actualSignature = signatureParts.length > 1 ? signatureParts[1] : signature;
+
+        console.log('🔑 Extracted signature:', actualSignature);
+        console.log('📏 Signature length match:', actualSignature.length === digest.length);
 
         // Use timingSafeEqual for security
-        const isValid =
-            signature.length === digest.length &&
-            timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+        const isValid = timingSafeEqual(Buffer.from(actualSignature), Buffer.from(digest));
 
         console.log('✅ Signature valid:', isValid);
 
