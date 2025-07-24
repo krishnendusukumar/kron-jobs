@@ -1612,9 +1612,20 @@ export default function DashboardPage() {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isPolling, setIsPolling] = useState(false);
 
+    // Debug log for Clerk user object
+    useEffect(() => {
+        console.log('Clerk user object:', user);
+        if (user) {
+            console.log('Clerk user.id:', user.id);
+        }
+    }, [user]);
+
     // Always fetch the latest user profile on dashboard load
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user || !user.id) {
+            console.error('❌ Clerk user or user.id is undefined:', user);
+            return;
+        }
         const fetchUserProfile = async () => {
             try {
                 const res = await fetch(`/api/user-profile?userId=${user.id}`);
@@ -1625,10 +1636,11 @@ export default function DashboardPage() {
             }
         };
         fetchUserProfile();
-    }, [user?.id, usersRefreshKey]);
+    }, [user, user?.id, usersRefreshKey]);
 
     // Poll for plan upgrade for a few seconds after payment redirect
     useEffect(() => {
+        if (!user || !user.id) return;
         const urlParams = new URLSearchParams(window.location.search);
         const paymentStatus = urlParams.get('payment');
         const plan = urlParams.get('plan');
@@ -1638,7 +1650,7 @@ export default function DashboardPage() {
             const maxAttempts = 10; // ~10 seconds
             const poll = async () => {
                 try {
-                    const res = await fetch(`/api/user-profile?userId=${user?.id}`);
+                    const res = await fetch(`/api/user-profile?userId=${user.id}`);
                     const data = await res.json();
                     setUserProfile(data.profile);
                     if (data.profile?.plan === 'lifetime') {
@@ -1659,7 +1671,7 @@ export default function DashboardPage() {
             };
             poll();
         }
-    }, [user?.id]);
+    }, [user, user?.id]);
 
     // Check for payment success in URL
     useEffect(() => {
