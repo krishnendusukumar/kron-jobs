@@ -1610,6 +1610,56 @@ export default function DashboardPage() {
     const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
     const [paymentPlan, setPaymentPlan] = useState<string>('');
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [isPolling, setIsPolling] = useState(false);
+
+    // Always fetch the latest user profile on dashboard load
+    useEffect(() => {
+        if (!user?.id) return;
+        const fetchUserProfile = async () => {
+            try {
+                const res = await fetch(`/api/user-profile?userId=${user.id}`);
+                const data = await res.json();
+                setUserProfile(data.profile);
+            } catch (err) {
+                setUserProfile(null);
+            }
+        };
+        fetchUserProfile();
+    }, [user?.id, usersRefreshKey]);
+
+    // Poll for plan upgrade for a few seconds after payment redirect
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = urlParams.get('payment');
+        const plan = urlParams.get('plan');
+        if (paymentStatus === 'success') {
+            setIsPolling(true);
+            let attempts = 0;
+            const maxAttempts = 10; // ~10 seconds
+            const poll = async () => {
+                try {
+                    const res = await fetch(`/api/user-profile?userId=${user?.id}`);
+                    const data = await res.json();
+                    setUserProfile(data.profile);
+                    if (data.profile?.plan === 'lifetime') {
+                        setShowPaymentSuccess(true);
+                        setPaymentPlan(plan || 'lifetime');
+                        setIsPolling(false);
+                        // Clean up URL
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        return;
+                    }
+                } catch (err) { }
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, 1000);
+                } else {
+                    setIsPolling(false);
+                }
+            };
+            poll();
+        }
+    }, [user?.id]);
 
     // Check for payment success in URL
     useEffect(() => {
@@ -1866,6 +1916,17 @@ export default function DashboardPage() {
                         >
                             ×
                         </button>
+                    </div>
+                </div>
+            )}
+            {isPolling && (
+                <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-cyan-400/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+                        <div>
+                            <div className="font-bold text-sm">Waiting for payment confirmation...</div>
+                            <div className="text-xs opacity-90">This may take a few seconds.</div>
+                        </div>
                     </div>
                 </div>
             )}
