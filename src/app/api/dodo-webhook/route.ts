@@ -12,7 +12,18 @@ export const POST = async (req: Request) => {
         const signature = req.headers.get("webhook-signature");
         const secret = process.env.DODO_WEBHOOK_SECRET;
 
+        // DEBUG: Log everything for troubleshooting
+        console.log('🔍 DODO WEBHOOK DEBUG START');
+        console.log('📋 All headers:', Object.fromEntries(req.headers.entries()));
+        console.log('🔑 Signature header value:', signature);
+        console.log('🔐 Secret configured:', secret ? 'YES' : 'NO');
+        console.log('📄 Raw body length:', rawBody.length);
+        console.log('📄 Raw body preview:', rawBody.substring(0, 200) + '...');
+
         if (!signature || !secret) {
+            console.log('❌ Missing signature or secret');
+            console.log('   Signature present:', !!signature);
+            console.log('   Secret present:', !!secret);
             return NextResponse.json({ message: "Missing signature or secret" }, { status: 400 });
         }
 
@@ -21,17 +32,27 @@ export const POST = async (req: Request) => {
         hmac.update(rawBody, "utf8");
         const digest = hmac.digest("hex");
 
+        console.log('🔐 Computed digest:', digest);
+        console.log('🔑 Received signature:', signature);
+        console.log('📏 Signature length match:', signature.length === digest.length);
+
         // Use timingSafeEqual for security
         const isValid =
             signature.length === digest.length &&
             timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
 
+        console.log('✅ Signature valid:', isValid);
+
         if (!isValid) {
+            console.log('❌ Invalid signature - rejecting webhook');
             return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
         }
 
         // 4. Parse event
         const event = JSON.parse(rawBody);
+        console.log('📊 Parsed event type:', event.type);
+        console.log('📊 Event data keys:', Object.keys(event.data || {}));
+        console.log('🔍 DODO WEBHOOK DEBUG END');
 
         // 5. Handle event types
         switch (event.type) {
