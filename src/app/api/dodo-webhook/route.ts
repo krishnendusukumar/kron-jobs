@@ -1,89 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UserProfileService } from '@/lib/user-profile-service';
 import { supabase } from '@/lib/supabase';
-import crypto from 'crypto';
+import { Webhook } from 'standardwebhooks';
 
 const DODO_WEBHOOK_SECRET = process.env.DODO_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
     try {
-        // Get the raw body for signature verification
-        const body = await req.text();
-        const signature = req.headers.get('x-dodo-signature') || req.headers.get('signature');
+        const rawBody = await req.text();
+        const headersList = req.headers;
+        const webhookHeaders = {
+            'webhook-id': headersList.get('webhook-id') || '',
+            'webhook-signature': headersList.get('webhook-signature') || '',
+            'webhook-timestamp': headersList.get('webhook-timestamp') || '',
+        };
 
-        console.log('📨 Received Dodo webhook:', {
-            hasBody: !!body,
-            hasSignature: !!signature,
-            bodyLength: body.length
-        });
-
-        // Verify webhook signature if secret is configured
-        if (DODO_WEBHOOK_SECRET && signature) {
-            const expectedSignature = crypto
-                .createHmac('sha256', DODO_WEBHOOK_SECRET)
-                .update(body)
-                .digest('hex');
-
-            if (signature !== expectedSignature) {
-                console.error('❌ Invalid webhook signature');
-                return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-            }
+        if (!DODO_WEBHOOK_SECRET) {
+            return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
         }
 
-        // Parse the webhook payload
-        let payload;
+        const webhook = new Webhook(DODO_WEBHOOK_SECRET);
         try {
-            payload = JSON.parse(body);
-        } catch (error) {
-            console.error('❌ Failed to parse webhook payload:', error);
-            return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+            await webhook.verify(rawBody, webhookHeaders);
+        } catch (err) {
+            console.error('❌ Webhook signature verification failed:', err);
+            return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
         }
 
-        console.log('📊 Webhook payload:', payload);
+        const payload = JSON.parse(rawBody);
+        console.log('📊 Dodo Webhook Payload:', JSON.stringify(payload, null, 2));
 
-        // Handle payment success - upgrade user plan
-        // Dodo will send webhook when payment is successful
-        if (payload.status === 'completed' || payload.payment_status === 'completed') {
-            console.log('✅ Payment completed, upgrading user plan');
+        // Check for payment success
+        const isPaymentSuccess =
+            payload.status === 'completed' ||
+            payload.payment_status === 'completed' ||
+            payload.status === 'succeeded' ||
+            payload.payment_status === 'succeeded' ||
+            payload.event === 'payment.succeeded' ||
+            payload.type === 'payment.succeeded';
 
-            // For now, upgrade to lifetime plan (you can modify this based on your needs)
-            // In a real scenario, you might want to identify which user made the payment
-            // You could store user info in a separate table or use email matching
-
-            // Example: if you have user email in the webhook
-            const userEmail = payload.customer?.email || payload.email;
-            if (userEmail) {
-                // Find user by email and upgrade
-                const { data: userProfile } = await supabase
+        if (isPaymentSuccess) {
+            // Prefer metadata_userId for matching
+            const userId = payload.metadata_userId || (payload.metadata && payload.metadata.userId);
+            let userProfile = null;
+            if (userId) {
+                const { data, error } = await supabase
                     .from('user_profiles')
-                    .select('user_id')
-                    .eq('email', userEmail)
+                    .select('user_id, email, plan')
+                    .eq('user_id', userId)
                     .single();
-
-                if (userProfile) {
-                    const upgradeSuccess = await UserProfileService.upgradePlan(
-                        userProfile.user_id,
-                        'lifetime',
-                        'dodo'
-                    );
-
-                    if (upgradeSuccess) {
-                        console.log('✅ User plan upgraded successfully:', userEmail);
+                if (error) {
+                    console.error('❌ Error finding user by userId:', error);
+                }
+                userProfile = data;
+            } else {
+                // Fallback to email
+                const userEmail = payload.email || payload.customer?.email;
+                if (userEmail) {
+                    const { data, error } = await supabase
+                        .from('user_profiles')
+                        .select('user_id, email, plan')
+                        .eq('email', userEmail)
+                        .single();
+                    if (error) {
+                        console.error('❌ Error finding user by email:', error);
                     }
+                    userProfile = data;
                 }
             }
+            if (userProfile) {
+                const plan = payload.metadata_plan || (payload.metadata && payload.metadata.plan) || 'lifetime';
+                const upgradeSuccess = await UserProfileService.upgradePlan(
+                    userProfile.user_id,
+                    plan as 'lifetime' | 'pro',
+                    'dodo'
+                );
+                if (upgradeSuccess) {
+                    console.log('✅ User plan upgraded successfully:', {
+                        userId: userProfile.user_id,
+                        email: userProfile.email,
+                        newPlan: plan
+                    });
+                } else {
+                    console.error('❌ Failed to upgrade user plan');
+                    return NextResponse.json({ error: 'Failed to upgrade plan' }, { status: 500 });
+                }
+            } else {
+                console.error('❌ No user profile found for payment:', payload);
+                return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+            }
         }
-
-        return NextResponse.json({
-            success: true,
-            message: 'Webhook processed successfully'
-        });
-
+        return NextResponse.json({ success: true, message: 'Webhook processed successfully' });
     } catch (error: any) {
         console.error('❌ Error processing Dodo webhook:', error);
-        return NextResponse.json({
-            error: 'Internal server error',
-            details: error.message
-        }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 } 

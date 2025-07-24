@@ -37,19 +37,25 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         try {
             // Dodo payment integration for paid plans
             if (planId === 'lifetime' || planId === 'pro') {
-                // Get the product URL from environment
-                const productUrl = process.env.NEXT_PUBLIC_DODO_PRODUCT_URL;
-                
-                if (!productUrl) {
-                    setUpgradeError('Payment configuration is missing. Please contact support.');
+                // Build the Dodo payment link dynamically
+                const productId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID;
+                if (!productId) {
+                    setUpgradeError('Payment system is being configured. Please try again in a few minutes or contact support.');
                     setIsUpgrading(false);
                     return;
                 }
-
-                console.log('🚀 Redirecting to Dodo payment:', productUrl);
-
-                // Redirect to Dodo product URL
-                window.location.href = productUrl;
+                const dodoBase = `https://checkout.dodopayments.com/buy/${productId}`;
+                const params = new URLSearchParams({
+                    quantity: '1',
+                    redirect_url: `${window.location.origin}/dashboard?payment=success&plan=${planId}`,
+                    email: userProfile.email,
+                    disableEmail: 'true',
+                    [`metadata_userId`]: userProfile.user_id,
+                    [`metadata_plan`]: planId
+                });
+                const paymentUrl = `${dodoBase}?${params.toString()}`;
+                console.log('🚀 Redirecting to Dodo payment:', paymentUrl);
+                window.location.href = paymentUrl;
                 return;
             }
 
