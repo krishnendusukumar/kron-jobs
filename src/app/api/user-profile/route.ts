@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
         const userId = searchParams.get('userId');
         const email = searchParams.get('email');
 
+        console.log('🔍 /api/user-profile called with:', { userId, email, url: request.url });
+
         if (!userId && !email) {
             return NextResponse.json(
                 { error: 'userId or email parameter is required' },
@@ -27,12 +29,14 @@ export async function GET(request: NextRequest) {
         }
 
         if (!profile) {
+            console.log('❌ No user profile found for user ID:', userId, '(This is normal for new users)');
             return NextResponse.json(
                 { error: 'User profile not found' },
                 { status: 404 }
             );
         }
 
+        console.log('✅ Debug - User profile fetched successfully:', profile ? 'Found' : 'Not found');
         return NextResponse.json({ profile });
     } catch (error) {
         console.error('Error in GET /api/user-profile:', error);
