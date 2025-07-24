@@ -39,6 +39,13 @@ const PricingSection: React.FC<PricingSectionProps> = ({
             if (planId === 'lifetime' || planId === 'pro') {
                 // Build the Dodo payment link dynamically
                 const productId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID;
+                console.log('🔍 Dodo payment check:', {
+                    planId,
+                    productId: productId ? 'SET' : 'MISSING',
+                    userProfileEmail: userProfile.email,
+                    userProfileId: userProfile.user_id
+                });
+
                 if (!productId) {
                     setUpgradeError('Payment system is being configured. Please try again in a few minutes or contact support.');
                     setIsUpgrading(false);
@@ -88,9 +95,37 @@ const PricingSection: React.FC<PricingSectionProps> = ({
     };
 
     const canUpgrade = (planId: string) => {
-        if (planId === 'free') return false;
-        if (planId === 'pro') return false; // Coming soon
-        if (isCurrentPlan(planId)) return false;
+        const currentPlan = getCurrentPlan();
+        const isCurrent = isCurrentPlan(planId);
+        const hasProfile = !!userProfile;
+
+        console.log('🔍 canUpgrade check:', {
+            planId,
+            currentPlan,
+            isCurrent,
+            hasProfile,
+            isFreePlan: planId === 'free',
+            isProPlan: planId === 'pro'
+        });
+
+        if (planId === 'free') {
+            console.log('❌ Free plan cannot be upgraded');
+            return false;
+        }
+        if (planId === 'pro') {
+            console.log('❌ Pro plan is coming soon');
+            return false; // Coming soon
+        }
+        if (isCurrent) {
+            console.log('❌ User already has this plan');
+            return false;
+        }
+        if (!hasProfile) {
+            console.log('❌ No user profile found');
+            return false; // Need user profile to upgrade
+        }
+
+        console.log('✅ Plan can be upgraded');
         return true;
     };
 
