@@ -12,7 +12,36 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // Check if user can perform job search
+        // Get user profile to check plan type
+        const userProfile = await UserProfileService.getUserProfile(userId);
+        if (!userProfile) {
+            return NextResponse.json({
+                success: false,
+                error: 'User profile not found',
+                message: '❌ User profile not found. Please try refreshing the page.'
+            }, { status: 404 });
+        }
+
+        // Check if user has unlimited search (weekly/monthly plans)
+        const hasUnlimitedSearch = userProfile.plan === 'weekly' || userProfile.plan === 'monthly';
+
+        if (hasUnlimitedSearch) {
+            // Unlimited plans can always perform job searches
+            return NextResponse.json({
+                success: true,
+                message: '✅ Unlimited job search available',
+                limits: {
+                    can_perform_action: true,
+                    credits_remaining: 999999,
+                    daily_searches_used: 0,
+                    daily_searches_limit: 999999,
+                    cron_jobs_used: 0,
+                    cron_jobs_limit: userProfile.max_cron_jobs
+                }
+            });
+        }
+
+        // For free plan users, check credits normally
         const canPerform = await UserProfileService.canPerformAction(userId, 'job_search');
 
         if (!canPerform) {

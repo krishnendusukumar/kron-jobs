@@ -21,13 +21,16 @@ export async function POST(request: Request) {
 
         // Check if user has credits remaining (unless it's a cron execution that already consumed credit)
         if (!isCronExecution) {
-            if (userProfile.credits_remaining <= 0) {
+            // Check if user has unlimited search (weekly/monthly plans)
+            const hasUnlimitedSearch = userProfile.plan === 'weekly' || userProfile.plan === 'monthly';
+
+            if (!hasUnlimitedSearch && userProfile.credits_remaining <= 0) {
                 return NextResponse.json({
                     error: "No credits remaining. Credits reset daily at midnight UTC."
                 }, { status: 403 });
             }
 
-            // Consume credit for manual scraping
+            // Consume credit for manual scraping (unlimited plans will be handled by consumeCredit function)
             const creditConsumed = await UserProfileService.consumeCredit(userId);
             if (!creditConsumed) {
                 return NextResponse.json({ error: "Failed to consume credit" }, { status: 500 });

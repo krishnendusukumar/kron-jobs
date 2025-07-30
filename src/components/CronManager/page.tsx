@@ -131,7 +131,7 @@ const CronManager: React.FC<CronManagerProps> = ({ userProfile, className = "" }
                         Automation Not Available
                     </h3>
                     <p className="text-gray-300 mb-4">
-                        Upgrade to Lifetime or Pro plan to schedule automated job searches.
+                        Upgrade to Weekly or Monthly plan to schedule automated job searches.
                     </p>
                     <div className="text-sm text-amber-300">
                         <p>Free plan: Manual searches only</p>

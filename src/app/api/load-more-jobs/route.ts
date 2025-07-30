@@ -131,8 +131,10 @@ export async function POST(req: NextRequest) {
                 }, { status: 404 });
             }
 
-            // Check if user has credits
-            if (userProfile.credits_remaining <= 0) {
+            // Check if user has unlimited search (weekly/monthly plans)
+            const hasUnlimitedSearch = userProfile.plan === 'weekly' || userProfile.plan === 'monthly';
+
+            if (!hasUnlimitedSearch && userProfile.credits_remaining <= 0) {
                 return NextResponse.json({
                     success: false,
                     error: 'No credits remaining',

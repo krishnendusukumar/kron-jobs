@@ -9,13 +9,13 @@ export interface UserProfile {
     last_name?: string;
     avatar_url?: string;
     email_verified?: boolean;
-    plan: 'free' | 'lifetime' | 'pro';
+    plan: 'free' | 'weekly' | 'monthly';
     credits_remaining: number;
     credits_reset_date: string;
     cron_times: string[];
     max_cron_jobs: number;
     max_daily_fetches: number;
-    upgrade_source: 'stripe' | 'manual' | 'dodo' | null;
+    upgrade_source: 'stripe' | 'manual' | 'dodo' | 'weekly' | 'monthly' | null;
     stripe_customer_id?: string;
     stripe_subscription_id?: string;
     last_sign_in?: string;
@@ -127,31 +127,30 @@ export class UserProfileService {
                 isAvailable: true
             },
             {
-                id: 'lifetime',
-                name: 'Lifetime Deal 💎',
-                price: '$5',
-                originalPrice: '$29',
-                description: 'One-time payment, lifetime access',
+                id: 'weekly',
+                name: 'Weekly Plan 💎',
+                price: '$3',
+                description: 'Unlimited job search for active job seekers',
                 features: [
-                    '✅ 2 automated cron job slots daily',
-                    '📥 3 job fetches daily (auto)',
-                    '🧪 Early access to new features',
-                    '🧩 Browser extension (reserved)',
+                    '✅ 3 automated cron job slots daily',
+                    '🔍 Unlimited job searches',
+                    '📧 Email notifications',
                     '⚡ Priority support',
                     '🔒 Secure & private'
                 ],
-                maxCronJobs: 2,
-                maxDailyFetches: 3,
+                maxCronJobs: 3,
+                maxDailyFetches: 999999, // Unlimited
                 isAvailable: true,
                 isPopular: true
             },
             {
-                id: 'pro',
-                name: 'Pro 🚀',
+                id: 'monthly',
+                name: 'Monthly Plan 🚀',
                 price: '$9',
                 description: 'Advanced features for power users',
                 features: [
                     '✅ 5 automated cron jobs/day',
+                    '🔍 Unlimited job searches',
                     '🤖 Auto-apply to supported jobs',
                     '📄 Resume autofill, extension',
                     '💬 Premium chat/email support',
@@ -159,9 +158,8 @@ export class UserProfileService {
                     '🔒 Secure & private'
                 ],
                 maxCronJobs: 5,
-                maxDailyFetches: 5,
-                isAvailable: false,
-                isComingSoon: true
+                maxDailyFetches: 999999, // Unlimited
+                isAvailable: true
             }
         ];
     }
@@ -280,14 +278,15 @@ export class UserProfileService {
         }
     }
 
-    static async upgradePlan(userId: string, plan: 'lifetime' | 'pro', source: 'stripe' | 'manual' | 'dodo' = 'manual'): Promise<boolean> {
+    static async upgradePlan(userId: string, plan: 'weekly' | 'monthly', source: 'stripe' | 'manual' | 'dodo' | 'weekly' | 'monthly' = 'manual'): Promise<boolean> {
         try {
             const { error } = await supabase
                 .from('user_profiles')
                 .update({
                     plan: plan,
-                    max_cron_jobs: plan === 'lifetime' ? 2 : 5,
-                    max_daily_fetches: plan === 'lifetime' ? 3 : 5,
+                    max_cron_jobs: plan === 'weekly' ? 3 : 5,
+                    max_daily_fetches: 999999, // Unlimited for both plans
+                    credits_remaining: 999999, // Unlimited credits
                     upgrade_source: source,
                     updated_at: new Date().toISOString()
                 })
@@ -373,7 +372,23 @@ export class UserProfileService {
     static async consumeCredit(userId: string): Promise<boolean> {
         try {
             const profile = await this.getUserProfile(userId);
-            if (!profile || profile.credits_remaining <= 0) {
+            if (!profile) {
+                console.error('User profile not found for credit consumption');
+                return false;
+            }
+
+            // Check if user has unlimited search (weekly/monthly plans)
+            const hasUnlimitedSearch = profile.plan === 'weekly' || profile.plan === 'monthly';
+
+            if (hasUnlimitedSearch) {
+                // For unlimited plans, just track usage but don't consume credits
+                console.log(`✅ Unlimited plan user (${profile.plan}) - tracking usage without consuming credits`);
+                return true;
+            }
+
+            // For free plan users, check credits and consume normally
+            if (profile.credits_remaining <= 0) {
+                console.log('❌ No credits remaining for free plan user');
                 return false;
             }
 
@@ -628,14 +643,15 @@ export class UserProfileService {
 
     static getAvailableCronSlots(plan: string): string[] {
         if (plan === 'free') return [];
-        return this.AVAILABLE_CRON_SLOTS;
+        if (plan === 'weekly' || plan === 'monthly') return this.AVAILABLE_CRON_SLOTS;
+        return [];
     }
 
     static getMaxCronJobs(plan: string): number {
         switch (plan) {
             case 'free': return 0;
-            case 'lifetime': return 2;
-            case 'pro': return 5;
+            case 'weekly': return 3;
+            case 'monthly': return 5;
             default: return 0;
         }
     }
@@ -643,8 +659,8 @@ export class UserProfileService {
     static getMaxDailyFetches(plan: string): number {
         switch (plan) {
             case 'free': return 3;
-            case 'lifetime': return 3;
-            case 'pro': return 5;
+            case 'weekly': return 999999; // Unlimited
+            case 'monthly': return 999999; // Unlimited
             default: return 3;
         }
     }

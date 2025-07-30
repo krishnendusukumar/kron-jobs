@@ -1578,7 +1578,7 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
     onUserCreated: () => void,
     userProfile: UserProfile | null,
     setUserProfile: (profile: UserProfile | null) => void,
-    onUpgrade: (plan: 'lifetime' | 'pro') => Promise<void>
+    onUpgrade: (plan: 'weekly' | 'monthly') => Promise<void>
 }) {
     return (
         <section className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 overflow-y-auto">
@@ -1600,7 +1600,7 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
 }
 
 export default function DashboardPage() {
-    const { isSignedIn, user } = useUser();
+    const { isSignedIn, user, isLoaded } = useUser();
     const { signOut } = useClerk();
     const router = useRouter();
     const [selected, setSelected] = useState('job-search');
@@ -1615,15 +1615,22 @@ export default function DashboardPage() {
     // Debug log for Clerk user object
     useEffect(() => {
         console.log('Clerk user object:', user);
+        console.log('Clerk isLoaded:', isLoaded);
         if (user) {
             console.log('Clerk user.id:', user.id);
         }
-    }, [user]);
+    }, [user, isLoaded]);
 
     // Always fetch the latest user profile on dashboard load
     useEffect(() => {
+        // Wait for Clerk to be fully loaded
+        if (!isLoaded) {
+            console.log('⏳ Waiting for Clerk to load...');
+            return;
+        }
+
         if (!user || !user.id) {
-            console.error('❌ Clerk user or user.id is undefined:', user);
+            console.log('ℹ️ User not signed in or user.id is undefined:', user);
             return;
         }
         const fetchUserProfile = async () => {
@@ -1640,7 +1647,7 @@ export default function DashboardPage() {
 
     // Poll for plan upgrade for a few seconds after payment redirect
     useEffect(() => {
-        if (!user || !user.id) return;
+        if (!isLoaded || !user || !user.id) return;
         const urlParams = new URLSearchParams(window.location.search);
         const paymentStatus = urlParams.get('payment');
         const plan = urlParams.get('plan');
@@ -1653,9 +1660,9 @@ export default function DashboardPage() {
                     const res = await fetch(`/api/user-profile?userId=${user.id}`);
                     const data = await res.json();
                     setUserProfile(data.profile);
-                    if (data.profile?.plan === 'lifetime') {
+                    if (data.profile?.plan === 'weekly' || data.profile?.plan === 'monthly') {
                         setShowPaymentSuccess(true);
-                        setPaymentPlan(plan || 'lifetime');
+                        setPaymentPlan(plan || data.profile.plan);
                         setIsPolling(false);
                         // Clean up URL
                         window.history.replaceState({}, document.title, window.location.pathname);
@@ -1854,6 +1861,17 @@ export default function DashboardPage() {
     }, [isSignedIn, user?.id]);
 
     // Show loading while Clerk is loading
+    if (!isLoaded) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a182e] to-[#1a2a3d]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+                    <div className="text-cyan-400 text-lg font-medium">Loading...</div>
+                </div>
+            </div>
+        );
+    }
+
     if (!isSignedIn) {
         return null;
     }
@@ -1872,7 +1890,7 @@ export default function DashboardPage() {
         signOut(() => router.push('/sign-in'));
     };
 
-    const handleUpgrade = async (plan: 'lifetime' | 'pro') => {
+    const handleUpgrade = async (plan: 'weekly' | 'monthly') => {
         if (!userProfile || !user?.id) return;
 
         try {

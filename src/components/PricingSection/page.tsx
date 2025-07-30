@@ -7,7 +7,7 @@ import { UserProfileService, PricingPlan, UserProfile } from '../../lib/user-pro
 
 interface PricingSectionProps {
     userProfile?: UserProfile | null;
-    onUpgrade?: (plan: 'lifetime' | 'pro') => void;
+    onUpgrade?: (plan: 'weekly' | 'monthly') => void;
     className?: string;
     showFAQ?: boolean;
 }
@@ -36,7 +36,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
 
         try {
             // Dodo payment integration for paid plans
-            if (planId === 'lifetime' || planId === 'pro') {
+            if (planId === 'weekly' || planId === 'monthly') {
                 // Build the Dodo payment link dynamically
                 const productId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID;
                 console.log('🔍 Dodo payment check:', {
@@ -69,12 +69,12 @@ const PricingSection: React.FC<PricingSectionProps> = ({
             // Manual upgrade fallback (for testing)
             const success = await UserProfileService.upgradePlan(
                 userProfile.user_id,
-                planId as 'lifetime' | 'pro',
+                planId as 'weekly' | 'monthly',
                 'manual'
             );
 
             if (success) {
-                onUpgrade?.(planId as 'lifetime' | 'pro');
+                onUpgrade?.(planId as 'weekly' | 'monthly');
             } else {
                 setUpgradeError('Failed to upgrade plan. Please try again.');
             }
@@ -112,9 +112,9 @@ const PricingSection: React.FC<PricingSectionProps> = ({
             console.log('❌ Free plan cannot be upgraded');
             return false;
         }
-        if (planId === 'pro') {
-            console.log('❌ Pro plan is coming soon');
-            return false; // Coming soon
+        if (planId === 'free') {
+            console.log('❌ Free plan cannot be upgraded');
+            return false;
         }
         if (isCurrent) {
             console.log('❌ User already has this plan');
@@ -133,9 +133,9 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         switch (planId) {
             case 'free':
                 return <Shield className="w-8 h-8" />;
-            case 'lifetime':
+            case 'weekly':
                 return <Crown className="w-8 h-8" />;
-            case 'pro':
+            case 'monthly':
                 return <Rocket className="w-8 h-8" />;
             default:
                 return <Zap className="w-8 h-8" />;
@@ -149,9 +149,9 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         switch (planId) {
             case 'free':
                 return 'from-slate-800 to-slate-900';
-            case 'lifetime':
+            case 'weekly':
                 return 'from-yellow-600/20 to-orange-600/20';
-            case 'pro':
+            case 'monthly':
                 return 'from-purple-600/20 to-pink-600/20';
             default:
                 return 'from-slate-800 to-slate-900';
@@ -181,9 +181,9 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                         Choose Your Plan
                     </h2>
                     <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-                        Start free and unlock automation when you're ready.
+                        Start free and unlock unlimited job searches when you're ready.
                         <br />
-                        <span className="text-cyan-400 font-medium">Our lifetime deal is perfect for early adopters.</span>
+                        <span className="text-cyan-400 font-medium">Choose weekly or monthly plans based on your needs.</span>
                     </p>
                 </motion.div>
 
@@ -279,12 +279,12 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                             </span>
                                         )}
                                         <div className="flex flex-col text-xs">
-                                            {plan.id === 'lifetime' && (
+                                            {plan.id === 'weekly' && (
                                                 <span className="text-cyan-400 font-bold uppercase tracking-wide">
-                                                    ONE-TIME
+                                                    /week
                                                 </span>
                                             )}
-                                            {plan.id === 'pro' && (
+                                            {plan.id === 'monthly' && (
                                                 <span className="text-slate-400 font-medium">
                                                     /month
                                                 </span>
@@ -453,11 +453,11 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                 },
                                 {
                                     question: "Can I change my plan later?",
-                                    answer: "Yes! You can upgrade from Free to Lifetime anytime. The Pro plan will be available soon with even more features."
+                                    answer: "Yes! You can upgrade from Free to Weekly or Monthly anytime. Both paid plans offer unlimited job searches."
                                 },
                                 {
                                     question: "What happens to my credits?",
-                                    answer: "Credits reset daily at midnight UTC. Free users get 3 credits, Lifetime users get 3 credits, and Pro users will get 5 credits."
+                                    answer: "Credits reset daily at midnight UTC. Free users get 3 credits, while Weekly and Monthly users get unlimited job searches."
                                 },
                                 {
                                     question: "Is the lifetime deal really forever?",
