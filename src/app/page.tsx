@@ -823,11 +823,6 @@ const KronJobsLanding = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
-  const [paymentPlan, setPaymentPlan] = useState<string>('');
-  const [isPolling, setIsPolling] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [mounted, setMounted] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
@@ -842,200 +837,6 @@ const KronJobsLanding = () => {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Fetch user profile when signed in
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      // Wait for Clerk to be fully loaded before proceeding
-      if (!isLoaded) {
-        console.log('⏳ Waiting for Clerk to load...');
-        return;
-      }
-
-      console.log('🔍 fetchUserProfile called - isSignedIn:', isSignedIn, 'user:', user?.emailAddresses?.[0]?.emailAddress);
-
-      // Only proceed if user is signed in and has email
-      if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) {
-        console.log('🔍 User not signed in or no email, setting profile to null');
-        setUserProfile(null);
-        setIsLoadingProfile(false);
-        return;
-      }
-
-      setIsLoadingProfile(true);
-      try {
-        console.log('🔍 Fetching user profile for:', user.emailAddresses[0].emailAddress);
-        const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
-        console.log('🔍 Response status:', response.status);
-
-        if (response.ok) {
-          const profile = await response.json();
-          console.log('🔍 User profile fetched:', profile);
-
-          if (profile) {
-            console.log('✅ Setting user profile:', profile);
-            setUserProfile(profile);
-          } else {
-            // Profile is null, create one
-            console.log('🔍 Profile is null, creating new user profile...');
-            const createResponse = await fetch('/api/user-profile', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: user.emailAddresses[0].emailAddress,
-                email: user.emailAddresses[0].emailAddress
-              })
-            });
-
-            if (createResponse.ok) {
-              const newProfile = await createResponse.json();
-              console.log('✅ Created new user profile:', newProfile.profile);
-              setUserProfile(newProfile.profile);
-            } else {
-              console.error('❌ Failed to create user profile');
-            }
-          }
-        } else if (response.status === 404) {
-          // User profile doesn't exist, create one
-          console.log('🔍 Creating new user profile (404 response)...');
-          const createResponse = await fetch('/api/user-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.emailAddresses[0].emailAddress,
-              email: user.emailAddresses[0].emailAddress
-            })
-          });
-
-          if (createResponse.ok) {
-            const newProfile = await createResponse.json();
-            console.log('✅ Created new user profile (404):', newProfile.profile);
-            setUserProfile(newProfile.profile);
-          } else {
-            console.error('❌ Failed to create user profile');
-          }
-        } else {
-          // Handle other error cases by creating a profile
-          console.log('🔍 Response not ok, creating new user profile as fallback...');
-          const createResponse = await fetch('/api/user-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.emailAddresses[0].emailAddress,
-              email: user.emailAddresses[0].emailAddress
-            })
-          });
-
-          if (createResponse.ok) {
-            const newProfile = await createResponse.json();
-            console.log('✅ Created new user profile (fallback):', newProfile.profile);
-            setUserProfile(newProfile.profile);
-          } else {
-            console.error('❌ Failed to create user profile');
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error fetching user profile:', error);
-      } finally {
-        setIsLoadingProfile(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, [isLoaded, isSignedIn, user]);
-
-  // Poll for plan upgrade after payment
-  useEffect(() => {
-    const pollForUpgrade = async () => {
-      if (showPaymentSuccess && paymentPlan && !isPolling) {
-        setIsPolling(true);
-        let attempts = 0;
-        const maxAttempts = 30; // 30 seconds
-
-        const poll = async () => {
-          if (attempts >= maxAttempts) {
-            console.log('⏰ Polling timeout reached');
-            setIsPolling(false);
-            return;
-          }
-
-          try {
-            const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user?.emailAddresses?.[0]?.emailAddress || '')}`);
-            if (response.ok) {
-              const profile = await response.json();
-              if (profile && profile.plan !== 'free') {
-                console.log('✅ Plan upgrade detected:', profile.plan);
-                setUserProfile(profile);
-                setShowPaymentSuccess(false);
-                setIsPolling(false);
-                return;
-              }
-            }
-          } catch (error) {
-            console.error('❌ Error polling for plan upgrade:', error);
-          }
-
-          attempts++;
-          setTimeout(poll, 1000); // Poll every second
-        };
-
-        poll();
-      }
-    };
-
-    pollForUpgrade();
-  }, [showPaymentSuccess, paymentPlan, isPolling, user]);
-
-  // Check for payment success in URL
-  useEffect(() => {
-    const checkPaymentSuccess = () => {
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const paymentSuccess = urlParams.get('payment_success');
-        const plan = urlParams.get('plan');
-
-        if (paymentSuccess === 'true' && plan) {
-          console.log('💰 Payment success detected for plan:', plan);
-          setShowPaymentSuccess(true);
-          setPaymentPlan(plan);
-
-          // Clean up URL
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
-        }
-      }
-    };
-
-    checkPaymentSuccess();
-  }, []);
-
-  // Show payment success toast
-  useEffect(() => {
-    const handlePaymentSuccess = () => {
-      if (showPaymentSuccess) {
-        const timer = setTimeout(() => {
-          setShowPaymentSuccess(false);
-        }, 5000);
-        return () => clearTimeout(timer);
-      }
-    };
-
-    return handlePaymentSuccess();
-  }, [showPaymentSuccess]);
-
-  // Show polling toast
-  useEffect(() => {
-    const handlePolling = () => {
-      if (isPolling) {
-        const timer = setTimeout(() => {
-          setIsPolling(false);
-        }, 30000); // 30 seconds timeout
-        return () => clearTimeout(timer);
-      }
-    };
-
-    return handlePolling();
-  }, [isPolling]);
 
   // Don't render anything until mounted to prevent hydration mismatch
   if (!mounted) {
@@ -1079,22 +880,6 @@ const KronJobsLanding = () => {
     setIsSubmitting(true);
 
     try {
-      // Ensure user profile exists before saving preferences
-      if (isSignedIn && user?.emailAddresses?.[0]?.emailAddress) {
-        const profileResponse = await fetch('/api/user-profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.emailAddresses[0].emailAddress,
-            email: user.emailAddresses[0].emailAddress
-          })
-        });
-
-        if (!profileResponse.ok) {
-          console.error('Failed to ensure user profile exists');
-        }
-      }
-
       const response = await fetch('/api/submit-preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1104,12 +889,12 @@ const KronJobsLanding = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Preferences submitted successfully:', data);
-
+        
         // Fetch tasks for the user
         if (formData.email) {
           await fetchTasks(formData.email);
         }
-
+        
         scrollToTasks();
       } else {
         console.error('❌ Failed to submit preferences');
@@ -1121,53 +906,8 @@ const KronJobsLanding = () => {
     }
   };
 
-  const refreshUserProfile = async () => {
-    if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) {
-      console.log('🔍 Cannot refresh profile - user not signed in or no email');
-      return;
-    }
-
-    setIsLoadingProfile(true);
-    try {
-      console.log('🔄 Refreshing user profile...');
-      const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
-
-      if (response.ok) {
-        const profile = await response.json();
-        console.log('✅ Profile refreshed:', profile);
-        setUserProfile(profile);
-      } else {
-        console.error('❌ Failed to refresh profile');
-      }
-    } catch (error) {
-      console.error('❌ Error refreshing profile:', error);
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a182e] to-[#1a2a3d] text-white overflow-x-hidden max-w-full w-full" suppressHydrationWarning>
-      {/* Payment Success Toast */}
-      {showPaymentSuccess && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-          <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            <span>Payment successful! Updating your plan...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Polling Toast */}
-      {isPolling && (
-        <div className="fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-          <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            <span>Checking for plan upgrade...</span>
-          </div>
-        </div>
-      )}
-
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#0a182e]/90 to-[#1a2a3d]/90 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1237,10 +977,10 @@ const KronJobsLanding = () => {
 
       {/* Pricing Section */}
       <PricingSection
-        userProfile={userProfile}
+        userProfile={null}
         showFAQ={false}
-        isLoadingProfile={isLoadingProfile || (isSignedIn && !userProfile)}
-        onRefresh={refreshUserProfile}
+        isLoadingProfile={false}
+        onRefresh={async () => {}}
       />
 
       {/* Features */}
