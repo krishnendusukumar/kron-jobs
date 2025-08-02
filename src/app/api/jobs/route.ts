@@ -16,12 +16,22 @@ export async function GET(req: NextRequest) {
         const offset = (page - 1) * limit; // Convert page to offset
         const sortBy = searchParams.get('sortBy') as any || 'created_at';
         const sortOrder = searchParams.get('sortOrder') as 'asc' | 'desc' || 'desc';
+        const stats = searchParams.get('stats') === 'true';
 
         if (!userId) {
             return NextResponse.json({
                 success: false,
                 error: 'userId is required'
             }, { status: 400 });
+        }
+
+        // If stats is requested, return job statistics
+        if (stats) {
+            const jobStats = await JobService.getJobStats(userId);
+            return NextResponse.json({
+                success: true,
+                stats: jobStats,
+            });
         }
 
         const filters = {

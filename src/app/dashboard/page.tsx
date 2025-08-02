@@ -26,6 +26,7 @@ type SidebarItem = {
 const SIDEBAR_ITEMS: SidebarItem[] = [
     { key: 'job-search', label: 'Job Search', icon: Search },
     { key: 'tasks', label: 'Tasks', icon: ListChecks },
+    { key: 'analytics', label: 'Analytics', icon: BarChart3 },
     { key: 'pricing', label: 'Pricing', icon: CreditCard },
 ];
 
@@ -1571,6 +1572,225 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     );
 }
 
+function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) {
+    const [stats, setStats] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+
+    const fetchAnalytics = async () => {
+        if (!userProfile?.user_id) return;
+
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/api/jobs?userId=${userProfile.user_id}&stats=true`);
+            if (response.ok) {
+                const data = await response.json();
+                setStats(data.stats);
+            }
+        } catch (error) {
+            console.error('❌ Error fetching analytics:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAnalytics();
+    }, [userProfile?.user_id]);
+
+    const getStatCard = (title: string, value: number, icon: any, color: string, description?: string) => (
+        <motion.div
+            className={`bg-gradient-to-br ${color} backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
+            <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/10 rounded-2xl">
+                    <icon.type {...icon.props} className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-right">
+                    <div className="text-3xl font-bold text-white">{value}</div>
+                    <div className="text-sm text-white/70">{title}</div>
+                </div>
+            </div>
+            {description && (
+                <div className="text-xs text-white/60 mt-2">{description}</div>
+            )}
+        </motion.div>
+    );
+
+    const getProgressBar = (current: number, total: number, color: string) => {
+        const percentage = total > 0 ? (current / total) * 100 : 0;
+        return (
+            <div className="w-full bg-white/10 rounded-full h-2 mb-2">
+                <div
+                    className={`h-2 rounded-full ${color} transition-all duration-500`}
+                    style={{ width: `${percentage}%` }}
+                />
+            </div>
+        );
+    };
+
+    if (!userProfile) {
+        return (
+            <motion.div
+                className="flex items-center justify-center min-h-[400px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+            >
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-white/70">Loading analytics...</p>
+                </div>
+            </motion.div>
+        );
+    }
+
+    return (
+        <motion.div
+            className="space-y-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-4xl font-bold text-white mb-2">Analytics Dashboard</h1>
+                    <p className="text-white/70">Track your job search progress and performance</p>
+                </div>
+                <button
+                    onClick={fetchAnalytics}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-2xl font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 disabled:opacity-50"
+                >
+                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                </button>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {getStatCard(
+                    'Total Jobs',
+                    stats?.total || 0,
+                    <Database className="w-6 h-6" />,
+                    'from-blue-500/20 to-blue-600/20',
+                    'Jobs fetched from searches'
+                )}
+                {getStatCard(
+                    'Applied',
+                    stats?.applied || 0,
+                    <CheckCircle className="w-6 h-6" />,
+                    'from-green-500/20 to-green-600/20',
+                    'Jobs you\'ve applied to'
+                )}
+                {getStatCard(
+                    'Hidden',
+                    stats?.hidden || 0,
+                    <Eye className="w-6 h-6" />,
+                    'from-yellow-500/20 to-yellow-600/20',
+                    'Jobs you\'ve hidden'
+                )}
+                {getStatCard(
+                    'Interviews',
+                    stats?.interview || 0,
+                    <Calendar className="w-6 h-6" />,
+                    'from-purple-500/20 to-purple-600/20',
+                    'Jobs with interviews'
+                )}
+            </div>
+
+            {/* Progress Overview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Application Rate */}
+                <motion.div
+                    className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                    <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <Target className="w-5 h-5 text-cyan-400" />
+                        Application Rate
+                    </h3>
+                    <div className="space-y-4">
+                        <div>
+                            <div className="flex justify-between text-sm text-white/70 mb-1">
+                                <span>Applied to {stats?.applied || 0} out of {stats?.total || 0} jobs</span>
+                                <span>{stats?.total > 0 ? Math.round((stats.applied / stats.total) * 100) : 0}%</span>
+                            </div>
+                            {getProgressBar(stats?.applied || 0, stats?.total || 0, 'bg-green-500')}
+                        </div>
+                        <div className="text-xs text-white/50">
+                            {stats?.total > 0 ?
+                                `You've applied to ${Math.round((stats.applied / stats.total) * 100)}% of your fetched jobs` :
+                                'Start searching for jobs to see your application rate'
+                            }
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Interview Success Rate */}
+                <motion.div
+                    className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                >
+                    <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-purple-400" />
+                        Interview Success Rate
+                    </h3>
+                    <div className="space-y-4">
+                        <div>
+                            <div className="flex justify-between text-sm text-white/70 mb-1">
+                                <span>{stats?.interview || 0} interviews from {stats?.applied || 0} applications</span>
+                                <span>{stats?.applied > 0 ? Math.round((stats.interview / stats.applied) * 100) : 0}%</span>
+                            </div>
+                            {getProgressBar(stats?.interview || 0, stats?.applied || 0, 'bg-purple-500')}
+                        </div>
+                        <div className="text-xs text-white/50">
+                            {stats?.applied > 0 ?
+                                `${Math.round((stats.interview / stats.applied) * 100)}% of your applications led to interviews` :
+                                'Apply to jobs to start tracking interview success'
+                            }
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Recent Activity */}
+            <motion.div
+                className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+            >
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-cyan-400" />
+                    Recent Activity
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-white/5 rounded-2xl">
+                        <div className="text-2xl font-bold text-white">{stats?.new || 0}</div>
+                        <div className="text-sm text-white/70">New Jobs (24h)</div>
+                    </div>
+                    <div className="text-center p-4 bg-white/5 rounded-2xl">
+                        <div className="text-2xl font-bold text-white">{stats?.rejected || 0}</div>
+                        <div className="text-sm text-white/70">Rejected</div>
+                    </div>
+                    <div className="text-center p-4 bg-white/5 rounded-2xl">
+                        <div className="text-2xl font-bold text-white">{stats?.total > 0 ? Math.round((stats.applied / stats.total) * 100) : 0}%</div>
+                        <div className="text-sm text-white/70">Application Rate</div>
+                    </div>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
 function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade, onRefresh, isLoadingProfile }: {
     selected: string,
     selectedUser: any,
@@ -1591,6 +1811,9 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
                     )}
                     {selected === 'tasks' && (
                         <TasksSection selectedUser={selectedUser} userProfile={userProfile} />
+                    )}
+                    {selected === 'analytics' && (
+                        <AnalyticsSection userProfile={userProfile} />
                     )}
                     {selected === 'pricing' && (
                         <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} onRefresh={onRefresh} isLoadingProfile={isLoadingProfile} />
@@ -1626,7 +1849,7 @@ export default function DashboardPage() {
             try {
                 console.log('🔍 Loading user profile for user:', user.id);
                 const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
-                
+
                 if (!email) {
                     console.error('❌ No email found for user');
                     return;
@@ -1657,7 +1880,7 @@ export default function DashboardPage() {
             setPaymentPlan(plan);
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
-            
+
             // Reload profile after successful payment
             setTimeout(() => {
                 if (user?.id) {
@@ -1687,7 +1910,7 @@ export default function DashboardPage() {
     };
 
     const handleRefresh = () => setUsersRefreshKey(k => k + 1);
-    
+
     const handleLogout = () => {
         signOut(() => router.push('/sign-in'));
     };
