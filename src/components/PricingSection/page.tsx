@@ -51,6 +51,17 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         }
     }, [userProfile, isLoadingProfile, isSignedIn]);
 
+    // Add mounted state to prevent hydration issues
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Don't render until mounted to prevent hydration mismatch
+    if (!mounted) {
+        return null;
+    }
+
     // Plan hierarchy for comparison
     const planHierarchy = {
         'free': 0,
@@ -468,7 +479,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                 </div>
 
                 {/* Current Plan Info */}
-                {(userProfile || isLoadingProfile || isSignedIn) && (
+                {mounted && (userProfile || isLoadingProfile || isSignedIn) && (
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}

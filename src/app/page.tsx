@@ -828,8 +828,25 @@ const KronJobsLanding = () => {
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState<string>('');
   const [isPolling, setIsPolling] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const tasksRef = useRef<HTMLDivElement>(null);
+
+  // Handle hydration
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  // Suppress hydration warnings for authentication state
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return null;
+  }
 
   // Fetch user profile when signed in
   useEffect(() => {
@@ -1104,8 +1121,8 @@ const KronJobsLanding = () => {
     }
   };
 
-  // Show loading state while Clerk is loading
-  if (!isLoaded) {
+  // Show loading state while Clerk is loading or during hydration
+  if (!isLoaded || !isHydrated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0a182e] via-[#1a2a3d] to-[#0a182e] relative overflow-hidden flex items-center justify-center">
         <div className="text-center">
@@ -1239,7 +1256,9 @@ const KronJobsLanding = () => {
           <div className="w-full">
             <div className="relative w-full">
               <div className="rotate-[-2deg] hover:rotate-0 transition-transform duration-300 w-full">
-                <JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} />
+                {mounted && (
+                  <JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} />
+                )}
               </div>
             </div>
           </div>
@@ -1249,7 +1268,7 @@ const KronJobsLanding = () => {
       <PricingSection
         userProfile={userProfile}
         showFAQ={false}
-        isLoadingProfile={isLoadingProfile || (isSignedIn && !userProfile)}
+        isLoadingProfile={isLoadingProfile || (isSignedIn && !userProfile) || !isHydrated}
         onRefresh={refreshUserProfile}
       />
       <HowItWorksSteps />
