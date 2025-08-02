@@ -85,6 +85,9 @@ export class JobService {
         }
         if (filters.hidden !== undefined) {
             query = query.eq('hidden', filters.hidden ? 1 : 0);
+        } else {
+            // By default, exclude hidden jobs unless explicitly requested
+            query = query.eq('hidden', 0);
         }
         if (filters.interview !== undefined) {
             query = query.eq('interview', filters.interview ? 1 : 0);

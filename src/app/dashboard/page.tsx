@@ -847,6 +847,7 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
     const [totalPages, setTotalPages] = useState(1);
     const [hasMoreJobs, setHasMoreJobs] = useState(true);
     const [currentStart, setCurrentStart] = useState(5); // Start with 5 as requested
+    const [hidingJobs, setHidingJobs] = useState<Set<number>>(new Set()); // Track jobs being hidden
 
     const fetchJobs = async () => {
         const userEmail = userProfile?.email || selectedUser?.email;
@@ -1050,20 +1051,75 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
 
     const updateJobStatus = async (jobId: number, action: string) => {
         try {
-            const res = await fetch(`/api/jobs?jobId=${jobId}&action=${action}`, {
+            const userId = userProfile?.user_id || selectedUser?.user_id;
+            if (!userId) {
+                toast.error('User ID not found');
+                return;
+            }
+
+            // If hiding a job, add it to the hiding set for animation
+            if (action === 'hidden') {
+                setHidingJobs(prev => new Set(prev).add(jobId));
+            }
+
+            const res = await fetch(`/api/jobs?jobId=${jobId}&userId=${userId}&action=${action}`, {
                 method: 'PUT'
             });
             const data = await res.json();
             console.log('Update job response:', data);
             if (data.success) {
                 toast.success(`Job marked as ${action}`);
-                fetchJobs(); // Refresh jobs
+
+                // Update local state instead of reloading all jobs
+                setJobs(prevJobs => {
+                    return prevJobs.map(job => {
+                        if (job.id === jobId) {
+                            // Reset all status flags first
+                            const updatedJob = {
+                                ...job,
+                                applied: 0,
+                                hidden: 0,
+                                interview: 0,
+                                rejected: 0
+                            };
+                            // Set the new status
+                            updatedJob[action] = 1;
+                            return updatedJob;
+                        }
+                        return job;
+                    }).filter(job => {
+                        // Remove hidden jobs from the UI immediately
+                        if (action === 'hidden' && job.id === jobId) {
+                            return false; // Remove this job from the list
+                        }
+                        return true;
+                    });
+                });
+
+                // Remove from hiding set after animation
+                if (action === 'hidden') {
+                    setTimeout(() => {
+                        setHidingJobs(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(jobId);
+                            return newSet;
+                        });
+                    }, 300); // Match animation duration
+                }
             } else {
                 throw new Error(data.error || 'Failed to update job');
             }
         } catch (err: any) {
             console.error('Error updating job:', err);
             toast.error(err.message || 'Error updating job');
+            // Remove from hiding set on error
+            if (action === 'hidden') {
+                setHidingJobs(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(jobId);
+                    return newSet;
+                });
+            }
         }
     };
 
@@ -1112,9 +1168,9 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                                     onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                                     className="px-4 py-2 rounded-xl bg-black/30 border border-cyan-400/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
                                 >
-                                    <option value="all">All Jobs</option>
+                                    <option value="all">All Jobs (Excluding Hidden)</option>
                                     <option value="applied">Applied</option>
-                                    <option value="hidden">Hidden</option>
+                                    <option value="hidden">Hidden Jobs</option>
                                     <option value="interview">Interview</option>
                                     <option value="rejected">Rejected</option>
                                 </select>
@@ -1145,45 +1201,79 @@ function TasksSection({ selectedUser, userProfile }: { selectedUser: any, userPr
                         ) : (
                             <>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                                    {jobs.map((job: any, index: number) => (
-                                        <motion.div
-                                            key={job.id}
-                                            className="bg-white/10 border border-cyan-400/20 rounded-2xl p-4 hover:bg-white/15 transition-all"
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.3, delay: index * 0.05 }}
-                                        >
-                                            <div className="mb-3">
-                                                <h4 className="font-semibold text-white text-sm line-clamp-2 mb-1">{job.title}</h4>
-                                                <p className="text-cyan-300 text-xs mb-1">{job.company}</p>
-                                                <p className="text-gray-400 text-xs">{job.location}</p>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <a
-                                                    href={job.job_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-xs bg-[#0a182e] text-white px-3 py-1 rounded-full hover:bg-[#162a4d] transition-all"
-                                                >
-                                                    View Job
-                                                </a>
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => updateJobStatus(job.id, 'applied')}
-                                                        className={`text-xs px-2 py-1 rounded ${job.applied === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-300'}`}
-                                                    >
-                                                        Applied
-                                                    </button>
-                                                    <button
-                                                        onClick={() => updateJobStatus(job.id, 'hidden')}
-                                                        className={`text-xs px-2 py-1 rounded ${job.hidden === 1 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300'}`}
-                                                    >
-                                                        Hide
-                                                    </button>
+                                    {jobs
+                                        .filter((job: any) => job.hidden !== 1) // Filter out hidden jobs
+                                        .map((job: any, index: number) => (
+                                            <motion.div
+                                                key={job.id}
+                                                className="bg-gradient-to-br from-slate-800/50 via-slate-700/50 to-slate-800/50 backdrop-blur-xl border border-slate-600/30 rounded-2xl p-6 shadow-2xl hover:shadow-cyan-500/10 transition-all duration-300"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{
+                                                    opacity: hidingJobs.has(job.id) ? 0 : 1,
+                                                    y: hidingJobs.has(job.id) ? -20 : 0,
+                                                    scale: hidingJobs.has(job.id) ? 0.95 : 1
+                                                }}
+                                                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                                transition={{
+                                                    duration: hidingJobs.has(job.id) ? 0.3 : 0.3,
+                                                    delay: hidingJobs.has(job.id) ? 0 : index * 0.1
+                                                }}
+                                            >
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">
+                                                            {job.title}
+                                                        </h3>
+                                                        <p className="text-cyan-300 font-medium">{job.company}</p>
+                                                        <p className="text-gray-400 text-sm">{job.location}</p>
+                                                        <p className="text-gray-500 text-xs">{job.date}</p>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <a
+                                                            href={job.job_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs bg-[#0a182e] text-white px-3 py-1 rounded-full hover:bg-[#162a4d] transition-all"
+                                                        >
+                                                            View Job
+                                                        </a>
+                                                        <div className="flex gap-1 flex-wrap">
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'applied')}
+                                                                className={`text-xs px-2 py-1 rounded ${job.applied === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-300'}`}
+                                                            >
+                                                                Applied
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'hidden')}
+                                                                disabled={job.applied === 1} // Disable if already applied
+                                                                title={job.applied === 1 ? "Cannot hide applied jobs" : "Hide this job"}
+                                                                className={`text-xs px-2 py-1 rounded ${job.hidden === 1
+                                                                    ? 'bg-yellow-500/20 text-yellow-300'
+                                                                    : job.applied === 1
+                                                                        ? 'bg-gray-500/10 text-gray-500 cursor-not-allowed'
+                                                                        : 'bg-gray-500/20 text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300'
+                                                                    }`}
+                                                            >
+                                                                Hide
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'interview')}
+                                                                className={`text-xs px-2 py-1 rounded ${job.interview === 1 ? 'bg-purple-500/20 text-purple-300' : 'bg-gray-500/20 text-gray-300 hover:bg-purple-500/20 hover:text-purple-300'}`}
+                                                            >
+                                                                Interview
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'rejected')}
+                                                                className={`text-xs px-2 py-1 rounded ${job.rejected === 1 ? 'bg-red-500/20 text-red-300' : 'bg-gray-500/20 text-gray-300 hover:bg-red-500/20 hover:text-red-300'}`}
+                                                            >
+                                                                Rejected
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                                            </motion.div>
+                                        ))}
                                 </div>
 
                                 {/* Load More Jobs Section */}
@@ -1240,6 +1330,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     const [totalPages, setTotalPages] = useState(1);
     const [hasMoreJobs, setHasMoreJobs] = useState(true);
     const [currentStart, setCurrentStart] = useState(5); // Start with 5 as requested
+    const [hidingJobs, setHidingJobs] = useState<Set<number>>(new Set()); // Track jobs being hidden
 
     const fetchJobs = async () => {
         if (!selectedUser?.email) {
@@ -1393,20 +1484,75 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
 
     const updateJobStatus = async (jobId: number, action: string) => {
         try {
-            const res = await fetch(`/api/jobs?jobId=${jobId}&action=${action}`, {
+            const userId = selectedUser?.user_id;
+            if (!userId) {
+                toast.error('User ID not found');
+                return;
+            }
+
+            // If hiding a job, add it to the hiding set for animation
+            if (action === 'hidden') {
+                setHidingJobs(prev => new Set(prev).add(jobId));
+            }
+
+            const res = await fetch(`/api/jobs?jobId=${jobId}&userId=${userId}&action=${action}`, {
                 method: 'PUT'
             });
             const data = await res.json();
             console.log('Update job response:', data);
             if (data.success) {
                 toast.success(`Job marked as ${action}`);
-                fetchJobs(); // Refresh jobs
+
+                // Update local state instead of reloading all jobs
+                setJobs(prevJobs => {
+                    return prevJobs.map(job => {
+                        if (job.id === jobId) {
+                            // Reset all status flags first
+                            const updatedJob = {
+                                ...job,
+                                applied: 0,
+                                hidden: 0,
+                                interview: 0,
+                                rejected: 0
+                            };
+                            // Set the new status
+                            updatedJob[action] = 1;
+                            return updatedJob;
+                        }
+                        return job;
+                    }).filter(job => {
+                        // Remove hidden jobs from the UI immediately
+                        if (action === 'hidden' && job.id === jobId) {
+                            return false; // Remove this job from the list
+                        }
+                        return true;
+                    });
+                });
+
+                // Remove from hiding set after animation
+                if (action === 'hidden') {
+                    setTimeout(() => {
+                        setHidingJobs(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(jobId);
+                            return newSet;
+                        });
+                    }, 300); // Match animation duration
+                }
             } else {
                 throw new Error(data.error || 'Failed to update job');
             }
         } catch (err: any) {
             console.error('Error updating job:', err);
             toast.error(err.message || 'Error updating job');
+            // Remove from hiding set on error
+            if (action === 'hidden') {
+                setHidingJobs(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(jobId);
+                    return newSet;
+                });
+            }
         }
     };
 
@@ -1455,9 +1601,9 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                                     onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                                     className="px-4 py-2 rounded-xl bg-black/30 border border-cyan-400/20 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
                                 >
-                                    <option value="all">All Jobs</option>
+                                    <option value="all">All Jobs (Excluding Hidden)</option>
                                     <option value="applied">Applied</option>
-                                    <option value="hidden">Hidden</option>
+                                    <option value="hidden">Hidden Jobs</option>
                                     <option value="interview">Interview</option>
                                     <option value="rejected">Rejected</option>
                                 </select>
@@ -1488,45 +1634,79 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
                         ) : (
                             <>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                                    {jobs.map((job, index) => (
-                                        <motion.div
-                                            key={job.id}
-                                            className="bg-white/10 border border-cyan-400/20 rounded-2xl p-4 hover:bg-white/15 transition-all"
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.3, delay: index * 0.05 }}
-                                        >
-                                            <div className="mb-3">
-                                                <h4 className="font-semibold text-white text-sm line-clamp-2 mb-1">{job.title}</h4>
-                                                <p className="text-cyan-300 text-xs mb-1">{job.company}</p>
-                                                <p className="text-gray-400 text-xs">{job.location}</p>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <a
-                                                    href={job.job_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-xs bg-[#0a182e] text-white px-3 py-1 rounded-full hover:bg-[#162a4d] transition-all"
-                                                >
-                                                    View Job
-                                                </a>
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => updateJobStatus(job.id, 'applied')}
-                                                        className={`text-xs px-2 py-1 rounded ${job.applied === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-300'}`}
-                                                    >
-                                                        Applied
-                                                    </button>
-                                                    <button
-                                                        onClick={() => updateJobStatus(job.id, 'hidden')}
-                                                        className={`text-xs px-2 py-1 rounded ${job.hidden === 1 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300'}`}
-                                                    >
-                                                        Hide
-                                                    </button>
+                                    {jobs
+                                        .filter((job: any) => job.hidden !== 1) // Filter out hidden jobs
+                                        .map((job: any, index: number) => (
+                                            <motion.div
+                                                key={job.id}
+                                                className="bg-gradient-to-br from-slate-800/50 via-slate-700/50 to-slate-800/50 backdrop-blur-xl border border-slate-600/30 rounded-2xl p-6 shadow-2xl hover:shadow-cyan-500/10 transition-all duration-300"
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{
+                                                    opacity: hidingJobs.has(job.id) ? 0 : 1,
+                                                    y: hidingJobs.has(job.id) ? -20 : 0,
+                                                    scale: hidingJobs.has(job.id) ? 0.95 : 1
+                                                }}
+                                                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                                transition={{
+                                                    duration: hidingJobs.has(job.id) ? 0.3 : 0.3,
+                                                    delay: hidingJobs.has(job.id) ? 0 : index * 0.1
+                                                }}
+                                            >
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">
+                                                            {job.title}
+                                                        </h3>
+                                                        <p className="text-cyan-300 font-medium">{job.company}</p>
+                                                        <p className="text-gray-400 text-sm">{job.location}</p>
+                                                        <p className="text-gray-500 text-xs">{job.date}</p>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <a
+                                                            href={job.job_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs bg-[#0a182e] text-white px-3 py-1 rounded-full hover:bg-[#162a4d] transition-all"
+                                                        >
+                                                            View Job
+                                                        </a>
+                                                        <div className="flex gap-1 flex-wrap">
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'applied')}
+                                                                className={`text-xs px-2 py-1 rounded ${job.applied === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-300 hover:bg-emerald-500/20 hover:text-emerald-300'}`}
+                                                            >
+                                                                Applied
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'hidden')}
+                                                                disabled={job.applied === 1} // Disable if already applied
+                                                                title={job.applied === 1 ? "Cannot hide applied jobs" : "Hide this job"}
+                                                                className={`text-xs px-2 py-1 rounded ${job.hidden === 1
+                                                                    ? 'bg-yellow-500/20 text-yellow-300'
+                                                                    : job.applied === 1
+                                                                        ? 'bg-gray-500/10 text-gray-500 cursor-not-allowed'
+                                                                        : 'bg-gray-500/20 text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300'
+                                                                    }`}
+                                                            >
+                                                                Hide
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'interview')}
+                                                                className={`text-xs px-2 py-1 rounded ${job.interview === 1 ? 'bg-purple-500/20 text-purple-300' : 'bg-gray-500/20 text-gray-300 hover:bg-purple-500/20 hover:text-purple-300'}`}
+                                                            >
+                                                                Interview
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updateJobStatus(job.id, 'rejected')}
+                                                                className={`text-xs px-2 py-1 rounded ${job.rejected === 1 ? 'bg-red-500/20 text-red-300' : 'bg-gray-500/20 text-gray-300 hover:bg-red-500/20 hover:text-red-300'}`}
+                                                            >
+                                                                Rejected
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
+                                            </motion.div>
+                                        ))}
                                 </div>
 
                                 {/* Load More Jobs Section */}
