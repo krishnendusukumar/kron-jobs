@@ -825,6 +825,9 @@ const KronJobsLanding = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+  const [paymentPlan, setPaymentPlan] = useState<string>('');
+  const [isPolling, setIsPolling] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const tasksRef = useRef<HTMLDivElement>(null);
 
@@ -905,7 +908,56 @@ const KronJobsLanding = () => {
     fetchUserProfile();
   }, [isSignedIn, user]);
 
+  // Poll for plan upgrade after payment redirect
+  useEffect(() => {
+    if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) return;
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const plan = urlParams.get('plan');
+
+    if (paymentStatus === 'success') {
+      console.log('🔍 Payment success detected, polling for profile update...');
+      setIsPolling(true);
+      let attempts = 0;
+      const maxAttempts = 15; // ~15 seconds
+
+      const poll = async () => {
+        try {
+          console.log(`🔍 Polling attempt ${attempts + 1}/${maxAttempts}`);
+          const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
+
+          if (response.ok) {
+            const profile = await response.json();
+            console.log('🔍 Polled profile:', profile);
+
+            if (profile && (profile.plan === 'weekly' || profile.plan === 'monthly')) {
+              console.log('✅ Plan upgrade detected, updating profile');
+              setUserProfile(profile);
+              setShowPaymentSuccess(true);
+              setPaymentPlan(plan || profile.plan);
+              setIsPolling(false);
+              // Clean up URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error polling profile:', error);
+        }
+
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 1000);
+        } else {
+          console.log('❌ Polling timeout, stopping');
+          setIsPolling(false);
+        }
+      };
+
+      poll();
+    }
+  }, [isSignedIn, user]);
 
   // Scroll to form
   const scrollToForm = () => {
@@ -971,6 +1023,27 @@ const KronJobsLanding = () => {
     } finally {
       console.log('🔍 Setting isSubmitting to false');
       setIsSubmitting(false);
+    }
+  };
+
+  // Manual profile refresh function
+  const refreshUserProfile = async () => {
+    if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) return;
+
+    console.log('🔍 Manually refreshing user profile...');
+    setIsLoadingProfile(true);
+
+    try {
+      const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
+      if (response.ok) {
+        const profile = await response.json();
+        console.log('🔍 Refreshed profile:', profile);
+        setUserProfile(profile);
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing profile:', error);
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -1104,7 +1177,12 @@ const KronJobsLanding = () => {
         </div>
       </div>
       <FeatureCards />
-      <PricingSection userProfile={userProfile} showFAQ={false} isLoadingProfile={isLoadingProfile} />
+      <PricingSection
+        userProfile={userProfile}
+        showFAQ={false}
+        isLoadingProfile={isLoadingProfile}
+        onRefresh={refreshUserProfile}
+      />
       <HowItWorksSteps />
       <Footer isSignedIn={Boolean(isSignedIn)} router={router} />
       {/* Mobile Sticky CTA */}
@@ -1132,6 +1210,38 @@ const KronJobsLanding = () => {
           </div>
         </motion.button>
       </motion.div>
+
+      {/* Payment Success Toast */}
+      {showPaymentSuccess && (
+        <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-green-500/95 to-emerald-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-green-400/30">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+            <div>
+              <div className="font-bold text-sm">Payment Successful!</div>
+              <div className="text-xs opacity-90">Your {paymentPlan} plan has been activated</div>
+            </div>
+            <button
+              onClick={() => setShowPaymentSuccess(false)}
+              className="ml-4 text-white/70 hover:text-white"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Polling Toast */}
+      {isPolling && (
+        <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-cyan-400/30">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+            <div>
+              <div className="font-bold text-sm">Waiting for payment confirmation...</div>
+              <div className="text-xs opacity-90">This may take a few seconds.</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

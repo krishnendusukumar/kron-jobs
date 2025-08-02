@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Star, Zap, Shield, Clock, AlertCircle, Crown, Sparkles, Rocket, LogIn } from 'lucide-react';
+import { Check, Star, Zap, Shield, Clock, AlertCircle, Crown, Sparkles, Rocket, LogIn, RefreshCw } from 'lucide-react';
 import { UserProfileService, PricingPlan, UserProfile } from '../../lib/user-profile-service';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 interface PricingSectionProps {
     userProfile?: UserProfile | null;
     onUpgrade?: (plan: 'weekly' | 'monthly') => void;
+    onRefresh?: () => Promise<void>;
     className?: string;
     showFAQ?: boolean;
     isLoadingProfile?: boolean;
@@ -23,6 +24,7 @@ interface DodoPaymentResponse {
 const PricingSection: React.FC<PricingSectionProps> = ({
     userProfile,
     onUpgrade,
+    onRefresh,
     className = "",
     showFAQ = true,
     isLoadingProfile = false
@@ -33,6 +35,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
     const [isUpgrading, setIsUpgrading] = useState(false);
     const [upgradeError, setUpgradeError] = useState<string | null>(null);
     const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
+    const [showRefreshSuccess, setShowRefreshSuccess] = useState(false);
 
     // Debug logging
     useEffect(() => {
@@ -125,6 +128,11 @@ const PricingSection: React.FC<PricingSectionProps> = ({
 
             if (success) {
                 onUpgrade?.(planId as 'weekly' | 'monthly');
+                // Refresh profile after successful upgrade
+                if (onRefresh) {
+                    console.log('🔍 Refreshing profile after successful upgrade...');
+                    await onRefresh();
+                }
             } else {
                 setUpgradeError('Failed to upgrade plan. Please try again.');
             }
@@ -441,7 +449,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                 </div>
 
                                 {/* Error Message */}
-                                {upgradeError && plan.id === 'lifetime' && (
+                                {upgradeError && plan.id === 'weekly' && (
                                     <motion.div
                                         className="mt-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl backdrop-blur-sm"
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -469,10 +477,26 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                     >
                         <div className="bg-gradient-to-r from-slate-800/50 via-slate-700/50 to-slate-800/50 backdrop-blur-xl border border-slate-600/30 rounded-3xl p-8 max-w-2xl mx-auto">
                             <div className="text-center mb-6">
-                                <h4 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-2">
-                                    <Shield className="w-6 h-6 text-cyan-400" />
-                                    Your Current Plan
-                                </h4>
+                                <div className="flex items-center justify-center gap-2 mb-2">
+                                    <h4 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <Shield className="w-6 h-6 text-cyan-400" />
+                                        Your Current Plan
+                                    </h4>
+                                    {onRefresh && (
+                                        <button
+                                            onClick={async () => {
+                                                await onRefresh();
+                                                setShowRefreshSuccess(true);
+                                                setTimeout(() => setShowRefreshSuccess(false), 3000);
+                                            }}
+                                            disabled={isLoadingProfile}
+                                            className="p-2 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
+                                            title="Refresh profile"
+                                        >
+                                            <RefreshCw className={`w-4 h-4 text-cyan-400 ${isLoadingProfile ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="text-3xl font-black text-white">
                                     {isLoadingProfile ? 'Loading...' : (plans.find(p => p.id === getCurrentPlan())?.name || 'Free')}
                                 </div>
@@ -528,8 +552,8 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                     answer: "Credits reset daily at midnight UTC. Free users get 3 credits, while Weekly and Monthly users get unlimited job searches."
                                 },
                                 {
-                                    question: "Is the lifetime deal really forever?",
-                                    answer: "Yes! The $5 lifetime deal gives you permanent access to automation features. This is a limited-time offer for early adopters."
+                                    question: "Is the weekly plan really unlimited?",
+                                    answer: "Yes! The weekly plan gives you unlimited job searches and 3 automated cron job slots. Perfect for active job seekers."
                                 }
                             ].map((faq, index) => (
                                 <motion.div
@@ -553,6 +577,25 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                     </motion.div>
                 )}
             </div>
+
+            {/* Refresh Success Toast */}
+            {showRefreshSuccess && (
+                <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-green-500/95 to-emerald-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-green-400/30">
+                    <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
+                        <div>
+                            <div className="font-bold text-sm">Profile Updated!</div>
+                            <div className="text-xs opacity-90">Your plan information has been refreshed</div>
+                        </div>
+                        <button
+                            onClick={() => setShowRefreshSuccess(false)}
+                            className="ml-4 text-white/70 hover:text-white"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
         </section>
     );
 };

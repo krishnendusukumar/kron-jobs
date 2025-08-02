@@ -1571,14 +1571,15 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     );
 }
 
-function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade }: {
+function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade, onRefresh }: {
     selected: string,
     selectedUser: any,
     onSelectUser: (user: any) => void,
     onUserCreated: () => void,
     userProfile: UserProfile | null,
     setUserProfile: (profile: UserProfile | null) => void,
-    onUpgrade: (plan: 'weekly' | 'monthly') => Promise<void>
+    onUpgrade: (plan: 'weekly' | 'monthly') => Promise<void>,
+    onRefresh: () => Promise<void>
 }) {
     return (
         <section className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 overflow-y-auto">
@@ -1591,7 +1592,7 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
                         <TasksSection selectedUser={selectedUser} userProfile={userProfile} />
                     )}
                     {selected === 'pricing' && (
-                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} isLoadingProfile={false} />
+                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} onRefresh={onRefresh} isLoadingProfile={false} />
                     )}
                 </AnimatePresence>
             </div>
@@ -1904,6 +1905,21 @@ export default function DashboardPage() {
         }
     };
 
+    const refreshUserProfile = async () => {
+        if (!user?.id) return;
+
+        console.log('🔍 Manually refreshing user profile in dashboard...');
+
+        try {
+            const res = await fetch(`/api/user-profile?userId=${user.id}`);
+            const data = await res.json();
+            console.log('🔍 Refreshed profile in dashboard:', data.profile);
+            setUserProfile(data.profile);
+        } catch (error) {
+            console.error('❌ Error refreshing profile in dashboard:', error);
+        }
+    };
+
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#0a182e] to-[#1a2a3d]">
             <Navbar currentPage="dashboard" userProfile={userProfile} />
@@ -1925,6 +1941,7 @@ export default function DashboardPage() {
                         userProfile={userProfile}
                         setUserProfile={setUserProfile}
                         onUpgrade={handleUpgrade}
+                        onRefresh={refreshUserProfile}
                     />
                 </div>
             </main>

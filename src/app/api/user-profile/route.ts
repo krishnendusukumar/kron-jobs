@@ -85,9 +85,9 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
-        if (!['lifetime', 'pro'].includes(plan)) {
+        if (!['weekly', 'monthly'].includes(plan)) {
             return NextResponse.json(
-                { error: 'Invalid plan. Must be "lifetime" or "pro"' },
+                { error: 'Invalid plan. Must be "weekly" or "monthly"' },
                 { status: 400 }
             );
         }

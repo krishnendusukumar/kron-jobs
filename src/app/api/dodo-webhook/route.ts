@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
                 const data = payload.data || {};
                 const userId = data?.metadata?.userId;
-                const plan = data?.metadata?.plan || 'lifetime';
+                const plan = data?.metadata?.plan || 'weekly';
                 const email = data?.customer?.email;
 
                 console.log('🔍 Payment details:', { userId, plan, email });
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
                     if (userProfile) {
                         const upgradeSuccess = await UserProfileService.upgradePlan(
                             userProfile.user_id,
-                            plan as 'lifetime' | 'pro',
+                            plan as 'weekly' | 'monthly',
                             'dodo'
                         );
 
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
                     if (userProfile) {
                         const upgradeSuccess = await UserProfileService.upgradePlan(
                             userProfile.user_id,
-                            plan as 'lifetime' | 'pro',
+                            plan as 'weekly' | 'monthly',
                             'dodo'
                         );
 
