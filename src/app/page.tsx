@@ -13,8 +13,7 @@ import {
 
 import LocationAutocomplete from '@/components/LocationAutocomplete';
 
-// Import the pricing component
-import PricingSection from '../components/PricingSection/page';
+// PricingSection import removed - no longer needed on homepage
 
 interface FormData {
   jobTitle: string;
@@ -975,13 +974,7 @@ const KronJobsLanding = () => {
         </div>
       </div>
 
-      {/* Pricing Section */}
-      <PricingSection
-        userProfile={null}
-        showFAQ={false}
-        isLoadingProfile={false}
-        onRefresh={async () => {}}
-      />
+      {/* Pricing Section removed - no longer needed on homepage */}
 
       {/* Features */}
       <FeatureCards />

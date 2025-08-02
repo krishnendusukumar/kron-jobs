@@ -51,17 +51,6 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         }
     }, [userProfile, isLoadingProfile, isSignedIn]);
 
-    // Add mounted state to prevent hydration issues
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // Don't render until mounted to prevent hydration mismatch
-    if (!mounted) {
-        return null;
-    }
-
     // Plan hierarchy for comparison
     const planHierarchy = {
         'free': 0,
@@ -89,164 +78,113 @@ const PricingSection: React.FC<PricingSectionProps> = ({
 
         try {
             // Dodo payment integration for paid plans
-            if (planId === 'weekly' || planId === 'monthly') {
-                // Build the Dodo payment link dynamically based on plan type
-                const weeklyProductId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID_WEEKLY;
-                const monthlyProductId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID_MONTHLY;
+            const productId = planId === 'weekly'
+                ? process.env.NEXT_PUBLIC_DODO_PRODUCT_ID_WEEKLY
+                : process.env.NEXT_PUBLIC_DODO_PRODUCT_ID_MONTHLY;
 
-                let productId;
-                if (planId === 'weekly') {
-                    productId = weeklyProductId;
-                } else if (planId === 'monthly') {
-                    productId = monthlyProductId;
-                }
+            if (!productId) {
+                throw new Error('Product ID not configured');
+            }
 
-                console.log('🔍 Dodo payment check:', {
-                    planId,
-                    weeklyProductId: weeklyProductId ? 'SET' : 'MISSING',
-                    monthlyProductId: monthlyProductId ? 'SET' : 'MISSING',
-                    selectedProductId: productId ? 'SET' : 'MISSING',
-                    userProfileEmail: userProfile.email,
-                    userProfileId: userProfile.user_id
-                });
-
-                if (!productId) {
-                    setUpgradeError('Payment system is being configured. Please try again in a few minutes or contact support.');
-                    setIsUpgrading(false);
-                    return;
-                }
-                const dodoBase = `https://checkout.dodopayments.com/buy/${productId}`;
-                const params = new URLSearchParams({
-                    quantity: '1',
-                    redirect_url: `${window.location.origin}/dashboard?payment=success&plan=${planId}`,
+            const response = await fetch('/api/dodo-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    productId,
+                    userId: userProfile.user_id,
                     email: userProfile.email,
-                    disableEmail: 'true',
-                    [`metadata_userId`]: userProfile.user_id,
-                    [`metadata_plan`]: planId
-                });
-                const paymentUrl = `${dodoBase}?${params.toString()}`;
-                console.log('🚀 Redirecting to Dodo payment:', paymentUrl);
-                window.location.href = paymentUrl;
-                return;
+                    plan: planId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to create payment session');
             }
 
-            // Manual upgrade fallback (for testing)
-            const success = await UserProfileService.upgradePlan(
-                userProfile.user_id,
-                planId as 'weekly' | 'monthly',
-                'manual'
-            );
+            const data: DodoPaymentResponse = await response.json();
 
-            if (success) {
-                onUpgrade?.(planId as 'weekly' | 'monthly');
-                // Refresh profile after successful upgrade
-                if (onRefresh) {
-                    console.log('🔍 Refreshing profile after successful upgrade...');
-                    await onRefresh();
-                }
+            if (data.checkout_url) {
+                // Redirect to Dodo payment
+                window.location.href = data.checkout_url;
             } else {
-                setUpgradeError('Failed to upgrade plan. Please try again.');
+                throw new Error('No checkout URL received');
             }
-        } catch (error) {
-            setUpgradeError('An error occurred. Please try again.');
-            console.error('Upgrade error:', error);
+        } catch (error: any) {
+            console.error('❌ Payment error:', error);
+            setUpgradeError(error.message || 'Failed to process payment. Please try again.');
         } finally {
             setIsUpgrading(false);
         }
     };
 
     const getCurrentPlan = () => {
-        if (!userProfile) return 'free';
-        return userProfile.plan || 'free';
+        return userProfile?.plan || 'free';
     };
 
     const isCurrentPlan = (planId: string) => {
-        const currentPlan = getCurrentPlan();
-        return currentPlan === planId;
+        return getCurrentPlan() === planId;
     };
 
     const canUpgrade = (planId: string) => {
-        const currentPlan = getCurrentPlan();
-        const currentPlanLevel = planHierarchy[currentPlan as keyof typeof planHierarchy] || 0;
+        if (planId === 'free') return false;
+        const currentPlanLevel = planHierarchy[getCurrentPlan() as keyof typeof planHierarchy] || 0;
         const targetPlanLevel = planHierarchy[planId as keyof typeof planHierarchy] || 0;
-        const isCurrent = isCurrentPlan(planId);
-
-        // Can't upgrade to free plan
-        if (planId === 'free') {
-            return false;
-        }
-
-        // Can't upgrade to current plan
-        if (isCurrent) {
-            return false;
-        }
-
-        // Can upgrade to higher plans
         return targetPlanLevel > currentPlanLevel;
     };
 
-
-
     const getButtonText = (planId: string) => {
-        if (planId === 'free') return 'Current Plan';
-        if (isCurrentPlan(planId)) return '✓ Current Plan';
+        if (isCurrentPlan(planId)) return 'Current Plan';
+        if (canUpgrade(planId)) return 'Upgrade Now';
         if (!isSignedIn) return 'Sign In to Buy';
-        if (!userProfile) return 'Complete Setup';
-        return 'Buy Now';
+        return 'Not Available';
     };
 
     const getButtonState = (planId: string) => {
-        if (planId === 'free') return 'disabled';
         if (isCurrentPlan(planId)) return 'current';
-        if (!isSignedIn) return 'login';
-        if (!userProfile) return 'disabled';
         if (canUpgrade(planId)) return 'upgrade';
+        if (!isSignedIn) return 'login';
         return 'disabled';
     };
 
     const getPlanIcon = (planId: string) => {
         switch (planId) {
-            case 'free':
-                return <Shield className="w-8 h-8" />;
-            case 'weekly':
-                return <Crown className="w-8 h-8" />;
-            case 'monthly':
-                return <Rocket className="w-8 h-8" />;
-            default:
-                return <Zap className="w-8 h-8" />;
+            case 'free': return <Star className="w-6 h-6" />;
+            case 'weekly': return <Zap className="w-6 h-6" />;
+            case 'monthly': return <Crown className="w-6 h-6" />;
+            default: return <Star className="w-6 h-6" />;
         }
     };
 
     const getPlanGradient = (planId: string, isPopular: boolean) => {
         if (isPopular) {
-            return 'from-gradient-start via-gradient-middle to-gradient-end';
+            return 'from-cyan-500/20 via-cyan-400/20 to-blue-500/20';
         }
         switch (planId) {
-            case 'free':
-                return 'from-slate-800 to-slate-900';
-            case 'weekly':
-                return 'from-yellow-600/20 to-orange-600/20';
-            case 'monthly':
-                return 'from-purple-600/20 to-pink-600/20';
-            default:
-                return 'from-slate-800 to-slate-900';
+            case 'free': return 'from-slate-700/50 to-slate-600/50';
+            case 'weekly': return 'from-emerald-500/20 to-teal-500/20';
+            case 'monthly': return 'from-purple-500/20 to-pink-500/20';
+            default: return 'from-slate-700/50 to-slate-600/50';
         }
     };
 
     const getButtonClasses = (planId: string, isPopular: boolean) => {
-        const state = getButtonState(planId);
+        const baseClasses = "w-full py-4 px-6 rounded-2xl font-semibold text-lg transition-all duration-300 transform";
 
-        switch (state) {
-            case 'current':
-                return 'w-full py-4 px-8 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white rounded-2xl font-bold text-lg cursor-not-allowed border border-cyan-600';
-            case 'upgrade':
-                return `w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg bg-[#0a182e] text-white border-0 hover:bg-[#162a4d] disabled:opacity-50 disabled:cursor-not-allowed`;
-            case 'login':
-                return `w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-0 hover:from-cyan-600 hover:to-blue-700`;
-            case 'disabled':
-            default:
-                return 'w-full py-4 px-8 bg-gradient-to-r from-slate-700 to-slate-800 text-slate-400 rounded-2xl font-bold text-lg cursor-not-allowed border border-slate-600';
+        if (getButtonState(planId) === 'current') {
+            return `${baseClasses} bg-gradient-to-r from-cyan-500 to-blue-500 text-white cursor-default`;
         }
+
+        if (getButtonState(planId) === 'upgrade') {
+            return isPopular
+                ? `${baseClasses} bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400`
+                : `${baseClasses} bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400`;
+        }
+
+        if (getButtonState(planId) === 'login') {
+            return `${baseClasses} bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-400 hover:to-red-400`;
+        }
+
+        return `${baseClasses} bg-slate-600 text-slate-400 cursor-not-allowed`;
     };
 
     return (
@@ -479,7 +417,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                 </div>
 
                 {/* Current Plan Info */}
-                {mounted && (userProfile || isLoadingProfile || isSignedIn) && (
+                {isSignedIn && (
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}

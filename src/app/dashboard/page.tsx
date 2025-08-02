@@ -1571,7 +1571,7 @@ function ScrapedJobsSection({ selectedUser }: { selectedUser: any }) {
     );
 }
 
-function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade, onRefresh }: {
+function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade, onRefresh, isLoadingProfile }: {
     selected: string,
     selectedUser: any,
     onSelectUser: (user: any) => void,
@@ -1579,7 +1579,8 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
     userProfile: UserProfile | null,
     setUserProfile: (profile: UserProfile | null) => void,
     onUpgrade: (plan: 'weekly' | 'monthly') => Promise<void>,
-    onRefresh: () => Promise<void>
+    onRefresh: () => Promise<void>,
+    isLoadingProfile: boolean
 }) {
     return (
         <section className="flex-1 min-h-[calc(100vh-4rem)] p-4 md:p-8 overflow-y-auto">
@@ -1592,7 +1593,7 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
                         <TasksSection selectedUser={selectedUser} userProfile={userProfile} />
                     )}
                     {selected === 'pricing' && (
-                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} onRefresh={onRefresh} isLoadingProfile={false} />
+                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} onRefresh={onRefresh} isLoadingProfile={isLoadingProfile} />
                     )}
                 </AnimatePresence>
             </div>
@@ -1607,81 +1608,45 @@ export default function DashboardPage() {
     const [selected, setSelected] = useState('job-search');
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(false);
     const [usersRefreshKey, setUsersRefreshKey] = useState(0);
     const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
     const [paymentPlan, setPaymentPlan] = useState<string>('');
     const [isMobileOpen, setIsMobileOpen] = useState(false);
-    const [isPolling, setIsPolling] = useState(false);
 
-    // Debug log for Clerk user object
+    // Single, simplified profile loading effect
     useEffect(() => {
-        console.log('Clerk user object:', user);
-        console.log('Clerk isLoaded:', isLoaded);
-        if (user) {
-            console.log('Clerk user.id:', user.id);
-        }
-    }, [user, isLoaded]);
+        const loadProfile = async () => {
+            // Wait for Clerk to be fully loaded
+            if (!isLoaded || !user?.id) {
+                return;
+            }
 
-    // Always fetch the latest user profile on dashboard load
-    useEffect(() => {
-        // Wait for Clerk to be fully loaded
-        if (!isLoaded) {
-            console.log('⏳ Waiting for Clerk to load...');
-            return;
-        }
-
-        if (!user || !user.id) {
-            console.log('ℹ️ User not signed in or user.id is undefined:', user);
-            return;
-        }
-        const fetchUserProfile = async () => {
+            setIsLoadingProfile(true);
             try {
-                const res = await fetch(`/api/user-profile?userId=${user.id}`);
-                const data = await res.json();
-                setUserProfile(data.profile);
-            } catch (err) {
+                console.log('🔍 Loading user profile for user:', user.id);
+                const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
+                
+                if (!email) {
+                    console.error('❌ No email found for user');
+                    return;
+                }
+
+                const profile = await UserProfileService.getOrCreateUserProfile(user.id, email);
+                console.log('✅ User profile loaded successfully:', profile);
+                setUserProfile(profile);
+            } catch (error) {
+                console.error('❌ Error loading user profile:', error);
                 setUserProfile(null);
+            } finally {
+                setIsLoadingProfile(false);
             }
         };
-        fetchUserProfile();
-    }, [user, user?.id, usersRefreshKey]);
 
-    // Poll for plan upgrade for a few seconds after payment redirect
-    useEffect(() => {
-        if (!isLoaded || !user || !user.id) return;
-        const urlParams = new URLSearchParams(window.location.search);
-        const paymentStatus = urlParams.get('payment');
-        const plan = urlParams.get('plan');
-        if (paymentStatus === 'success') {
-            setIsPolling(true);
-            let attempts = 0;
-            const maxAttempts = 10; // ~10 seconds
-            const poll = async () => {
-                try {
-                    const res = await fetch(`/api/user-profile?userId=${user.id}`);
-                    const data = await res.json();
-                    setUserProfile(data.profile);
-                    if (data.profile?.plan === 'weekly' || data.profile?.plan === 'monthly') {
-                        setShowPaymentSuccess(true);
-                        setPaymentPlan(plan || data.profile.plan);
-                        setIsPolling(false);
-                        // Clean up URL
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                        return;
-                    }
-                } catch (err) { }
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(poll, 1000);
-                } else {
-                    setIsPolling(false);
-                }
-            };
-            poll();
-        }
-    }, [user, user?.id]);
+        loadProfile();
+    }, [isLoaded, user?.id]);
 
-    // Check for payment success in URL
+    // Check for payment success in URL (simplified)
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const paymentStatus = urlParams.get('payment');
@@ -1692,37 +1657,76 @@ export default function DashboardPage() {
             setPaymentPlan(plan);
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // Reload profile after successful payment
+            setTimeout(() => {
+                if (user?.id) {
+                    const reloadProfile = async () => {
+                        try {
+                            const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
+                            if (email) {
+                                const profile = await UserProfileService.getOrCreateUserProfile(user.id, email);
+                                setUserProfile(profile);
+                            }
+                        } catch (error) {
+                            console.error('❌ Error reloading profile after payment:', error);
+                        }
+                    };
+                    reloadProfile();
+                }
+            }, 2000);
         }
-    }, []);
+    }, [user?.id]);
 
-    // Load user profile function
-    const loadUserProfile = async () => {
-        if (!user?.id) return;
+    const handleTabSelect = (tab: string) => {
+        setSelected(tab);
+    };
+
+    const handleUserCreated = () => {
+        setUsersRefreshKey(k => k + 1);
+    };
+
+    const handleRefresh = () => setUsersRefreshKey(k => k + 1);
+    
+    const handleLogout = () => {
+        signOut(() => router.push('/sign-in'));
+    };
+
+    const handleUpgrade = async (plan: 'weekly' | 'monthly') => {
+        if (!userProfile || !user?.id) return;
 
         try {
-            console.log('🔍 Loading user profile for user:', user.id);
+            const success = await UserProfileService.upgradePlan(user.id, plan, 'manual');
+            if (success) {
+                // Reload user profile to get updated data
+                const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
+                if (email) {
+                    const profile = await UserProfileService.getOrCreateUserProfile(user.id, email);
+                    setUserProfile(profile);
+                }
+            }
+        } catch (error) {
+            console.error('Error upgrading plan:', error);
+        }
+    };
 
+    const refreshUserProfile = async () => {
+        if (!user?.id) return;
+
+        console.log('🔍 Manually refreshing user profile in dashboard...');
+        setIsLoadingProfile(true);
+
+        try {
             const email = user.emailAddresses[0]?.emailAddress || user.primaryEmailAddress?.emailAddress;
-            if (!email) {
-                console.error('❌ No email found for user');
-                toast.error('❌ No email found for user. Please check your account settings.');
-                return;
-            }
-
-            console.log('🔍 User email:', email);
-
-            const profile = await UserProfileService.getOrCreateUserProfile(user.id, email);
-
-            if (profile) {
-                console.log('✅ User profile loaded successfully');
+            if (email) {
+                const profile = await UserProfileService.getOrCreateUserProfile(user.id, email);
+                console.log('🔍 Refreshed profile in dashboard:', profile);
                 setUserProfile(profile);
-            } else {
-                console.error('❌ Failed to load or create user profile');
-                toast.error('❌ Failed to load user profile. Please try refreshing the page.');
             }
-        } catch (error: any) {
-            console.error('❌ Error loading user profile:', error);
-            toast.error('❌ Error loading user profile: ' + (error.message || 'Unknown error'));
+        } catch (error) {
+            console.error('❌ Error refreshing profile in dashboard:', error);
+        } finally {
+            setIsLoadingProfile(false);
         }
     };
 
@@ -1757,7 +1761,7 @@ export default function DashboardPage() {
                 toast.success('✅ Credit reset successful');
 
                 // Reload user profile to see updated credits
-                await loadUserProfile();
+                await refreshUserProfile();
             } else {
                 console.error('❌ Credit reset failed:', result);
                 toast.error('❌ Credit reset failed: ' + result.error);
@@ -1831,7 +1835,7 @@ export default function DashboardPage() {
 
                 // Reload user profile if test was successful
                 if (result.finalProfile === 'Success') {
-                    await loadUserProfile();
+                    await refreshUserProfile();
                 }
             } else {
                 console.error('❌ User profile test failed:', result);
@@ -1857,7 +1861,7 @@ export default function DashboardPage() {
             if (savedTab && SIDEBAR_ITEMS.some(item => item.key === savedTab)) {
                 setSelected(savedTab);
             }
-            loadUserProfile();
+            refreshUserProfile();
         }
     }, [isSignedIn, user?.id]);
 
@@ -1876,49 +1880,6 @@ export default function DashboardPage() {
     if (!isSignedIn) {
         return null;
     }
-
-    const handleTabSelect = (tab: string) => {
-        setSelected(tab);
-        localStorage.setItem('dashboard-tab', tab);
-    };
-
-    const handleUserCreated = () => {
-        setUsersRefreshKey(k => k + 1);
-    };
-
-    const handleRefresh = () => setUsersRefreshKey(k => k + 1);
-    const handleLogout = () => {
-        signOut(() => router.push('/sign-in'));
-    };
-
-    const handleUpgrade = async (plan: 'weekly' | 'monthly') => {
-        if (!userProfile || !user?.id) return;
-
-        try {
-            const success = await UserProfileService.upgradePlan(user.id, plan, 'manual');
-            if (success) {
-                // Reload user profile to get updated data
-                await loadUserProfile();
-            }
-        } catch (error) {
-            console.error('Error upgrading plan:', error);
-        }
-    };
-
-    const refreshUserProfile = async () => {
-        if (!user?.id) return;
-
-        console.log('🔍 Manually refreshing user profile in dashboard...');
-
-        try {
-            const res = await fetch(`/api/user-profile?userId=${user.id}`);
-            const data = await res.json();
-            console.log('🔍 Refreshed profile in dashboard:', data.profile);
-            setUserProfile(data.profile);
-        } catch (error) {
-            console.error('❌ Error refreshing profile in dashboard:', error);
-        }
-    };
 
     return (
         <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#0a182e] to-[#1a2a3d]">
@@ -1942,6 +1903,7 @@ export default function DashboardPage() {
                         setUserProfile={setUserProfile}
                         onUpgrade={handleUpgrade}
                         onRefresh={refreshUserProfile}
+                        isLoadingProfile={isLoadingProfile}
                     />
                 </div>
             </main>
@@ -1963,17 +1925,6 @@ export default function DashboardPage() {
                         >
                             ×
                         </button>
-                    </div>
-                </div>
-            )}
-            {isPolling && (
-                <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-cyan-400/30">
-                    <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
-                        <div>
-                            <div className="font-bold text-sm">Waiting for payment confirmation...</div>
-                            <div className="text-xs opacity-90">This may take a few seconds.</div>
-                        </div>
                     </div>
                 </div>
             )}
