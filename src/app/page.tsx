@@ -829,6 +829,7 @@ const KronJobsLanding = () => {
   const [paymentPlan, setPaymentPlan] = useState<string>('');
   const [isPolling, setIsPolling] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const tasksRef = useRef<HTMLDivElement>(null);
 
@@ -838,25 +839,19 @@ const KronJobsLanding = () => {
   }, []);
 
   // Suppress hydration warnings for authentication state
-  const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Don't render anything until mounted to prevent hydration mismatch
-  if (!mounted) {
-    return null;
-  }
-
   // Fetch user profile when signed in
   useEffect(() => {
-    // Wait for Clerk to be fully loaded before proceeding
-    if (!isLoaded) {
-      console.log('⏳ Waiting for Clerk to load...');
-      return;
-    }
-
     const fetchUserProfile = async () => {
+      // Wait for Clerk to be fully loaded before proceeding
+      if (!isLoaded) {
+        console.log('⏳ Waiting for Clerk to load...');
+        return;
+      }
+
       console.log('🔍 fetchUserProfile called - isSignedIn:', isSignedIn, 'user:', user?.emailAddresses?.[0]?.emailAddress);
 
       // Only proceed if user is signed in and has email
@@ -941,185 +936,111 @@ const KronJobsLanding = () => {
         }
       } catch (error) {
         console.error('❌ Error fetching user profile:', error);
-        // Try to create profile even if fetch fails
-        try {
-          console.log('🔍 Attempting to create user profile after fetch error...');
-          const createResponse = await fetch('/api/user-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.emailAddresses[0].emailAddress,
-              email: user.emailAddresses[0].emailAddress
-            })
-          });
-
-          if (createResponse.ok) {
-            const newProfile = await createResponse.json();
-            console.log('✅ Created new user profile (error fallback):', newProfile.profile);
-            setUserProfile(newProfile.profile);
-          }
-        } catch (createError) {
-          console.error('❌ Failed to create user profile after fetch error:', createError);
-        }
       } finally {
-        console.log('🔍 Setting isLoadingProfile to false');
         setIsLoadingProfile(false);
       }
     };
 
     fetchUserProfile();
-  }, [isSignedIn, user]);
+  }, [isLoaded, isSignedIn, user]);
 
-  // Poll for plan upgrade after payment redirect
+  // Poll for plan upgrade after payment
   useEffect(() => {
-    if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) return;
+    const pollForUpgrade = async () => {
+      if (showPaymentSuccess && paymentPlan && !isPolling) {
+        setIsPolling(true);
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-    const plan = urlParams.get('plan');
-
-    if (paymentStatus === 'success') {
-      console.log('🔍 Payment success detected, polling for profile update...');
-      setIsPolling(true);
-      let attempts = 0;
-      const maxAttempts = 15; // ~15 seconds
-
-      const poll = async () => {
-        try {
-          console.log(`🔍 Polling attempt ${attempts + 1}/${maxAttempts}`);
-          const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
-
-          if (response.ok) {
-            const profile = await response.json();
-            console.log('🔍 Polled profile:', profile);
-
-            if (profile && (profile.plan === 'weekly' || profile.plan === 'monthly')) {
-              console.log('✅ Plan upgrade detected, updating profile');
-              setUserProfile(profile);
-              setShowPaymentSuccess(true);
-              setPaymentPlan(plan || profile.plan);
-              setIsPolling(false);
-              // Clean up URL
-              window.history.replaceState({}, document.title, window.location.pathname);
-              return;
-            }
+        const poll = async () => {
+          if (attempts >= maxAttempts) {
+            console.log('⏰ Polling timeout reached');
+            setIsPolling(false);
+            return;
           }
-        } catch (error) {
-          console.error('❌ Error polling profile:', error);
-        }
 
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 1000);
-        } else {
-          console.log('❌ Polling timeout, stopping');
-          setIsPolling(false);
-        }
-      };
+          try {
+            const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user?.emailAddresses?.[0]?.emailAddress || '')}`);
+            if (response.ok) {
+              const profile = await response.json();
+              if (profile && profile.plan !== 'free') {
+                console.log('✅ Plan upgrade detected:', profile.plan);
+                setUserProfile(profile);
+                setShowPaymentSuccess(false);
+                setIsPolling(false);
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('❌ Error polling for plan upgrade:', error);
+          }
 
-      poll();
-    }
-  }, [isSignedIn, user]);
+          attempts++;
+          setTimeout(poll, 1000); // Poll every second
+        };
 
-  // Scroll to form
-  const scrollToForm = () => {
-    formRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-  // Scroll to tasks/results
-  const scrollToTasks = () => {
-    tasksRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Fetch tasks for user
-  const fetchTasks = async (email: string) => {
-    const res = await fetch(`/api/start-scraping?userId=${encodeURIComponent(email)}`);
-    if (res.ok) {
-      const data = await res.json();
-      setTasks(data.tasks || []);
-    }
-  };
-
-  // Enhanced handleSubmit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('🔍 handleSubmit called with formData:', formData);
-    setIsSubmitting(true);
-    try {
-      // 0. Ensure user profile exists (for production)
-      console.log('🔍 Ensuring user profile exists...');
-      const profileRes = await fetch('/api/user-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: formData.email,
-          email: formData.email
-        }),
-      });
-      console.log('🔍 Profile creation response status:', profileRes.status);
-
-      // 1. Save preferences
-      console.log('🔍 Saving preferences...');
-      const prefRes = await fetch('/api/submit-preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobTitle: formData.jobTitle,
-          keywords: '', // Add keywords if you have them
-          location: formData.location,
-          minSalary: '', // Add minSalary if you have it
-          notifyMethod: 'email',
-          experience: '',
-          email: formData.email,
-        }),
-      });
-      console.log('🔍 Preferences response status:', prefRes.status);
-      if (!prefRes.ok) throw new Error('Failed to save preferences');
-
-      // 2. Start scraping
-      console.log('🔍 Starting scraping...');
-      const scrapeRes = await fetch('/api/start-scraping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: formData.email }),
-      });
-      const scrapeData = await scrapeRes.json();
-      console.log('🔍 Scraping response:', scrapeData);
-      if (!scrapeRes.ok) throw new Error(scrapeData.error || 'Failed to start scraping');
-
-      // 3. Fetch and show tasks
-      console.log('🔍 Fetching tasks...');
-      await fetchTasks(formData.email);
-      setFormData({ jobTitle: '', location: '', email: '' });
-      setTimeout(scrollToTasks, 500); // Scroll to results
-    } catch (err) {
-      console.error('❌ Error in handleSubmit:', err);
-      // Optionally show error UI
-    } finally {
-      console.log('🔍 Setting isSubmitting to false');
-      setIsSubmitting(false);
-    }
-  };
-
-  // Manual profile refresh function
-  const refreshUserProfile = async () => {
-    if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) return;
-
-    console.log('🔍 Manually refreshing user profile...');
-    setIsLoadingProfile(true);
-
-    try {
-      const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
-      if (response.ok) {
-        const profile = await response.json();
-        console.log('🔍 Refreshed profile:', profile);
-        setUserProfile(profile);
+        poll();
       }
-    } catch (error) {
-      console.error('❌ Error refreshing profile:', error);
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  };
+    };
+
+    pollForUpgrade();
+  }, [showPaymentSuccess, paymentPlan, isPolling, user]);
+
+  // Check for payment success in URL
+  useEffect(() => {
+    const checkPaymentSuccess = () => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentSuccess = urlParams.get('payment_success');
+        const plan = urlParams.get('plan');
+
+        if (paymentSuccess === 'true' && plan) {
+          console.log('💰 Payment success detected for plan:', plan);
+          setShowPaymentSuccess(true);
+          setPaymentPlan(plan);
+
+          // Clean up URL
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        }
+      }
+    };
+
+    checkPaymentSuccess();
+  }, []);
+
+  // Show payment success toast
+  useEffect(() => {
+    const handlePaymentSuccess = () => {
+      if (showPaymentSuccess) {
+        const timer = setTimeout(() => {
+          setShowPaymentSuccess(false);
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+    };
+
+    return handlePaymentSuccess();
+  }, [showPaymentSuccess]);
+
+  // Show polling toast
+  useEffect(() => {
+    const handlePolling = () => {
+      if (isPolling) {
+        const timer = setTimeout(() => {
+          setIsPolling(false);
+        }, 30000); // 30 seconds timeout
+        return () => clearTimeout(timer);
+      }
+    };
+
+    return handlePolling();
+  }, [isPolling]);
+
+  // Don't render anything until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return null;
+  }
 
   // Show loading state while Clerk is loading or during hydration
   if (!isLoaded || !isHydrated) {
@@ -1133,203 +1054,203 @@ const KronJobsLanding = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a182e] to-[#1a2a3d] text-white overflow-x-hidden max-w-full w-full">
-      {/* Animated Background */}
-      <PlanetaryMotion />
-      {/* Animated Blobs */}
-      <AnimatedBlob className="w-64 h-64 md:w-96 md:h-96 bg-blue-500/20 top-1/4 left-1/4 max-w-[90vw] max-h-[90vh]" />
-      <AnimatedBlob className="w-56 h-56 md:w-80 md:h-80 bg-purple-500/20 top-3/4 right-1/4 max-w-[90vw] max-h-[90vh]" />
-      <AnimatedBlob className="w-48 h-48 md:w-72 md:h-72 bg-emerald-500/20 bottom-1/4 left-1/3 max-w-[90vw] max-h-[90vh]" />
-      {/* Floating Badges */}
-      {/* Navigation */}
-      <nav className="relative z-50 bg-black/30 backdrop-blur-2xl border-b border-white/20 sticky top-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <motion.div
-              className="flex items-center space-x-3"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="w-10 h-10 bg-[#0a182e] rounded-xl flex items-center justify-center shadow-lg">
-                <Search className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-white">
-                KronJobs
-              </span>
-            </motion.div>
-            {/* Navigation Links */}
-            {/* Mobile Menu Button */}
-            <motion.button
-              className="md:hidden p-2 rounded-lg border border-cyan-500/30 hover:border-cyan-400/50 backdrop-blur-sm hover:bg-cyan-500/10 transition-all duration-300 cursor-pointer"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <div className="w-5 h-5 flex flex-col justify-center items-center space-y-1">
-                <span className={`w-4 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`}></span>
-                <span className={`w-4 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : ''}`}></span>
-                <span className={`w-4 h-0.5 bg-white transition-all duration-300 ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></span>
-              </div>
-            </motion.button>
-            {/* CTA Buttons */}
-            <div className="flex items-center space-x-4">
-              <motion.a
-                href="/dashboard"
-                className="text-gray-300 hover:text-white font-medium transition-colors px-4 py-2 rounded-lg hover:bg-white/10 cursor-pointer"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                Dashboard
-              </motion.a>
-              <motion.button
-                className="bg-cyan-700/90 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-xl hover:bg-cyan-600/90 cursor-pointer"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  if (isSignedIn) {
-                    router.push('/dashboard');
-                  } else {
-                    router.push('/sign-in');
-                  }
-                }}
-              >
-                <span className="font-semibold">Start Free</span>
-              </motion.button>
-            </div>
-          </div>
-          {/* Mobile Menu Overlay */}
-          <div className="top-24 inset-x-0 z-40 hidden lg:flex justify-center space-x-4 pointer-events-none">
-            <FloatingBadges />
-          </div>
-          <AnimatePresence>
-            {mobileMenuOpen && (
-              <motion.div
-                className="md:hidden absolute top-16 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-cyan-500/20"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="px-4 py-6 space-y-4">
-                  {['Features', 'Pricing', 'How it Works', 'Contact'].map((item, i) => (
-                    <motion.a
-                      key={item}
-                      href={`#${item.toLowerCase().replace(' ', '-')}`}
-                      className="block text-gray-300 hover:text-white font-medium transition-colors py-2 cursor-pointer"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: i * 0.1 }}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {item}
-                    </motion.a>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </nav>
-      {/* Main Content */}
-      <HeroSection isSignedIn={Boolean(isSignedIn)} router={router} />
-      <div ref={formRef} className="relative z-10 py-20">
-        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-          {/* Left: Selling/Pain Point */}
-          <div className="mb-10 md:mb-0">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Tired of missing jobs?</h2>
-            <p className="text-lg text-gray-300 mb-6">Let KronJobs do the searching for you. No more endless scrolling, no more FOMO. Get instant alerts, save hours every week, and never miss a great opportunity again.</p>
-            <ul className="list-disc list-inside text-gray-400 space-y-2 pl-2">
-              <li>⏰ Real-time job alerts</li>
-              <li>🤖 Automated LinkedIn scraping</li>
-              <li>🔒 Early access </li>
-              <li>🚀 Apply faster, stress less</li>
-            </ul>
-          </div>
-          {/* Right: Tilted Form */}
-          <div className="w-full">
-            <div className="relative w-full">
-              <div className="rotate-[-2deg] hover:rotate-0 transition-transform duration-300 w-full">
-                {mounted && (
-                  <JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <FeatureCards />
-      <PricingSection
-        userProfile={userProfile}
-        showFAQ={false}
-        isLoadingProfile={isLoadingProfile || (isSignedIn && !userProfile) || !isHydrated}
-        onRefresh={refreshUserProfile}
-      />
-      <HowItWorksSteps />
-      <Footer isSignedIn={Boolean(isSignedIn)} router={router} />
-      {/* Mobile Sticky CTA */}
-      <motion.div
-        className="fixed bottom-4 left-4 right-4 z-50 md:hidden"
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1, duration: 0.5 }}
-      >
-        <motion.button
-          className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 text-white px-6 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-xl hover:shadow-cyan-500/25 hover:shadow-purple-500/25 cursor-pointer"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            if (isSignedIn) {
-              router.push('/dashboard');
-            } else {
-              router.push('/sign-in');
-            }
-          }}
-        >
-          <div className="flex items-center justify-center space-x-2">
-            <Rocket className="w-5 h-5" />
-            <span>Start Free</span>
-          </div>
-        </motion.button>
-      </motion.div>
+  const scrollToForm = () => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
+  const scrollToTasks = () => {
+    tasksRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const fetchTasks = async (email: string) => {
+    try {
+      const response = await fetch(`/api/jobs?email=${encodeURIComponent(email)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTasks(data.tasks || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Ensure user profile exists before saving preferences
+      if (isSignedIn && user?.emailAddresses?.[0]?.emailAddress) {
+        const profileResponse = await fetch('/api/user-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.emailAddresses[0].emailAddress,
+            email: user.emailAddresses[0].emailAddress
+          })
+        });
+
+        if (!profileResponse.ok) {
+          console.error('Failed to ensure user profile exists');
+        }
+      }
+
+      const response = await fetch('/api/submit-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Preferences submitted successfully:', data);
+
+        // Fetch tasks for the user
+        if (formData.email) {
+          await fetchTasks(formData.email);
+        }
+
+        scrollToTasks();
+      } else {
+        console.error('❌ Failed to submit preferences');
+      }
+    } catch (error) {
+      console.error('❌ Error submitting preferences:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const refreshUserProfile = async () => {
+    if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) {
+      console.log('🔍 Cannot refresh profile - user not signed in or no email');
+      return;
+    }
+
+    setIsLoadingProfile(true);
+    try {
+      console.log('🔄 Refreshing user profile...');
+      const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
+
+      if (response.ok) {
+        const profile = await response.json();
+        console.log('✅ Profile refreshed:', profile);
+        setUserProfile(profile);
+      } else {
+        console.error('❌ Failed to refresh profile');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing profile:', error);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0a182e] to-[#1a2a3d] text-white overflow-x-hidden max-w-full w-full" suppressHydrationWarning>
       {/* Payment Success Toast */}
       {showPaymentSuccess && (
-        <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-green-500/95 to-emerald-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-green-400/30">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
-            <div>
-              <div className="font-bold text-sm">Payment Successful!</div>
-              <div className="text-xs opacity-90">Your {paymentPlan} plan has been activated</div>
-            </div>
-            <button
-              onClick={() => setShowPaymentSuccess(false)}
-              className="ml-4 text-white/70 hover:text-white"
-            >
-              ×
-            </button>
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span>Payment successful! Updating your plan...</span>
           </div>
         </div>
       )}
 
       {/* Polling Toast */}
       {isPolling && (
-        <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 backdrop-blur-sm text-white px-6 py-4 rounded-2xl shadow-2xl border border-cyan-400/30">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-lg"></div>
-            <div>
-              <div className="font-bold text-sm">Waiting for payment confirmation...</div>
-              <div className="text-xs opacity-90">This may take a few seconds.</div>
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span>Checking for plan upgrade...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#0a182e]/90 to-[#1a2a3d]/90 backdrop-blur-sm border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="text-2xl font-bold text-cyan-400">KronJobs</div>
+            </div>
+            <div className="hidden md:flex items-center space-x-6">
+              <button onClick={scrollToForm} className="text-white hover:text-cyan-400 transition-colors">
+                Get Started
+              </button>
+              {isSignedIn ? (
+                <button onClick={() => router.push('/dashboard')} className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
+                  Dashboard
+                </button>
+              ) : (
+                <button onClick={() => router.push('/sign-in')} className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
+                  Sign In
+                </button>
+              )}
+            </div>
+            <div className="md:hidden">
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)}></div>
+          <div className="fixed right-0 top-0 h-full w-64 bg-[#1a2a3d] shadow-xl">
+            <div className="p-6">
+              <button onClick={scrollToForm} className="block w-full text-left text-white hover:text-cyan-400 py-2">
+                Get Started
+              </button>
+              {isSignedIn ? (
+                <button onClick={() => router.push('/dashboard')} className="block w-full text-left bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg mt-4">
+                  Dashboard
+                </button>
+              ) : (
+                <button onClick={() => router.push('/sign-in')} className="block w-full text-left bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg mt-4">
+                  Sign In
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Hero Section */}
+      <HeroSection isSignedIn={isSignedIn} router={router} />
+
+      {/* Job Scan Form */}
+      <div className="w-full">
+        <div className="relative w-full">
+          <div className="rotate-[-2deg] hover:rotate-0 transition-transform duration-300 w-full">
+            <JobScanForm formData={formData} setFormData={setFormData} handleSubmit={handleSubmit} isSubmitting={isSubmitting} />
+          </div>
+        </div>
+      </div>
+
+      {/* Pricing Section */}
+      <PricingSection
+        userProfile={userProfile}
+        showFAQ={false}
+        isLoadingProfile={isLoadingProfile || (isSignedIn && !userProfile)}
+        onRefresh={refreshUserProfile}
+      />
+
+      {/* Features */}
+      <FeatureCards />
+
+      {/* How It Works */}
+      <HowItWorksSteps />
+
+      {/* Footer */}
+      <Footer isSignedIn={isSignedIn} router={router} />
     </div>
   );
 };
