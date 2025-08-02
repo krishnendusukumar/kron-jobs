@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, Users, Settings, BarChart3, Plus, RefreshCw, Eye, CheckCircle, XCircle, Clock, Filter, ChevronDown, ChevronUp, User, LogOut, CreditCard, Calendar, Target, Zap, Shield, Globe, Star, TrendingUp, Building2, MapPin, Mail, Phone, ExternalLink, Trash2, Edit3, Save, X, AlertCircle, Check, ArrowRight, Download, Upload, Database, Server, Network, Wifi, WifiOff, Activity, BarChart, PieChart, LineChart, AreaChart, ListChecks, Brain } from 'lucide-react';
+import { Search, Loader2, Users, Settings, BarChart3, Plus, RefreshCw, Eye, CheckCircle, XCircle, Clock, Filter, ChevronDown, ChevronUp, User, LogOut, CreditCard, Calendar, Target, Zap, Shield, Globe, Star, TrendingUp, Building2, MapPin, Mail, Phone, ExternalLink, Trash2, Edit3, Save, X, AlertCircle, Check, ArrowRight, Download, Upload, Database, Server, Network, Wifi, WifiOff, Activity, BarChart, PieChart, LineChart, AreaChart, ListChecks, Brain, Linkedin, FileText } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/shared/Navbar';
@@ -12,6 +12,7 @@ import AnimatedBlob from '@/components/shared/AnimatedBlob';
 import ProxyTest from '@/components/ProxyTest/page';
 import { toast, Toaster } from 'react-hot-toast';
 import { UserProfileService, UserProfile } from '../../lib/user-profile-service';
+import { ProfileService, LinkedInProfile, Resume } from '../../lib/profile-service';
 import PricingSection from '../../components/PricingSection/page';
 import CronManager from '../../components/CronManager/page';
 import LocationAutocomplete from '@/components/LocationAutocomplete';
@@ -27,6 +28,8 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     { key: 'job-search', label: 'Job Search', icon: Search },
     { key: 'tasks', label: 'Tasks', icon: ListChecks },
     { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { key: 'linkedin-profile', label: 'LinkedIn Profile', icon: Linkedin },
+    { key: 'resume-upload', label: 'Resume Upload', icon: FileText },
     { key: 'pricing', label: 'Pricing', icon: CreditCard },
 ];
 
@@ -2122,6 +2125,965 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
     );
 }
 
+function LinkedInProfileSection({ userProfile }: { userProfile: UserProfile | null }) {
+    const [linkedinProfile, setLinkedinProfile] = useState<LinkedInProfile | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [linkedinUrl, setLinkedinUrl] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [profileData, setProfileData] = useState({
+        name: '',
+        current_job_title: '',
+        company: '',
+        location: '',
+        summary: '',
+        skills: [] as string[],
+        experience: [] as any[],
+        education: [] as any[],
+        certifications: [] as any[],
+        languages: [] as string[]
+    });
+    const [newSkill, setNewSkill] = useState('');
+
+    const fetchLinkedInProfile = async () => {
+        if (!userProfile?.user_id) return;
+
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/api/linkedin-profile?userId=${userProfile.user_id}`);
+            if (response.ok) {
+                const data = await response.json();
+                setLinkedinProfile(data.profile);
+                if (data.profile?.linkedin_url) {
+                    setLinkedinUrl(data.profile.linkedin_url);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error fetching LinkedIn profile:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const saveLinkedInProfile = async () => {
+        if (!userProfile?.user_id || !linkedinUrl.trim()) {
+            toast.error('Please enter a valid LinkedIn URL');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            // For now, we'll create a basic profile structure
+            // In the future, this would be populated by LinkedIn API
+            const profileData = {
+                name: '', // Would be fetched from LinkedIn API
+                current_job_title: '',
+                company: '',
+                location: '',
+                summary: '',
+                skills: [],
+                experience: [],
+                education: [],
+                certifications: [],
+                languages: []
+            };
+
+            const response = await fetch('/api/linkedin-profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: userProfile.user_id,
+                    linkedinUrl: linkedinUrl.trim(),
+                    profileData: profileData
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setLinkedinProfile(data.profile);
+                setIsEditing(false);
+                toast.success('LinkedIn profile saved successfully!');
+                toast('Note: Profile data will be populated when LinkedIn API integration is complete.', {
+                    icon: 'ℹ️',
+                    duration: 4000
+                });
+            } else {
+                toast.error(data.error || 'Failed to save LinkedIn profile');
+            }
+        } catch (error) {
+            console.error('❌ Error saving LinkedIn profile:', error);
+            toast.error('Failed to save LinkedIn profile');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const deleteLinkedInProfile = async () => {
+        if (!userProfile?.user_id) return;
+
+        if (!confirm('Are you sure you want to delete your LinkedIn profile data?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/linkedin-profile?userId=${userProfile.user_id}`, {
+                method: 'DELETE',
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setLinkedinProfile(null);
+                setLinkedinUrl('');
+                setIsEditing(false);
+                toast.success('LinkedIn profile deleted successfully!');
+            } else {
+                toast.error(data.error || 'Failed to delete LinkedIn profile');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting LinkedIn profile:', error);
+            toast.error('Failed to delete LinkedIn profile');
+        }
+    };
+
+    useEffect(() => {
+        fetchLinkedInProfile();
+    }, [userProfile?.user_id]);
+
+    // Populate profile data when LinkedIn profile is loaded
+    useEffect(() => {
+        if (linkedinProfile) {
+            setProfileData({
+                name: linkedinProfile.name || '',
+                current_job_title: linkedinProfile.current_job_title || '',
+                company: linkedinProfile.company || '',
+                location: linkedinProfile.location || '',
+                summary: linkedinProfile.summary || '',
+                skills: linkedinProfile.skills || [],
+                experience: linkedinProfile.experience || [],
+                education: linkedinProfile.education || [],
+                certifications: linkedinProfile.certifications || [],
+                languages: linkedinProfile.languages || []
+            });
+        }
+    }, [linkedinProfile]);
+
+    const updateProfileData = async () => {
+        if (!userProfile?.user_id) return;
+
+        setIsSaving(true);
+        try {
+            const response = await fetch('/api/linkedin-profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: userProfile.user_id,
+                    updates: {
+                        name: profileData.name,
+                        current_job_title: profileData.current_job_title,
+                        company: profileData.company,
+                        location: profileData.location,
+                        summary: profileData.summary,
+                        skills: profileData.skills,
+                        experience: profileData.experience,
+                        education: profileData.education,
+                        certifications: profileData.certifications,
+                        languages: profileData.languages
+                    }
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setLinkedinProfile(data.profile);
+                setIsEditingProfile(false);
+                toast.success('Profile data updated successfully!');
+            } else {
+                toast.error(data.error || 'Failed to update profile data');
+            }
+        } catch (error) {
+            console.error('❌ Error updating profile data:', error);
+            toast.error('Failed to update profile data');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const addSkill = () => {
+        if (newSkill.trim() && !profileData.skills.includes(newSkill.trim())) {
+            setProfileData(prev => ({
+                ...prev,
+                skills: [...prev.skills, newSkill.trim()]
+            }));
+            setNewSkill('');
+        }
+    };
+
+    const removeSkill = (skillToRemove: string) => {
+        setProfileData(prev => ({
+            ...prev,
+            skills: prev.skills.filter(skill => skill !== skillToRemove)
+        }));
+    };
+
+    if (!userProfile) {
+        return (
+            <motion.div
+                className="flex items-center justify-center min-h-[400px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+            >
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-white/70">Loading profile...</p>
+                </div>
+            </motion.div>
+        );
+    }
+
+    return (
+        <motion.div
+            className="space-y-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-4xl font-bold text-white mb-2">LinkedIn Profile</h1>
+                    <p className="text-white/70">Connect your LinkedIn profile to enhance your job applications</p>
+                </div>
+                <button
+                    onClick={fetchLinkedInProfile}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-2xl font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 disabled:opacity-50"
+                >
+                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                </button>
+            </div>
+
+            {/* LinkedIn Profile Form */}
+            <motion.div
+                className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+            >
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 bg-blue-500/20 rounded-2xl">
+                        <Linkedin className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white">LinkedIn Profile URL</h2>
+                        <p className="text-white/70">Enter your LinkedIn profile URL to connect your professional data</p>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                            LinkedIn Profile URL
+                        </label>
+                        <div className="flex gap-3">
+                            <input
+                                type="url"
+                                value={linkedinUrl}
+                                onChange={(e) => setLinkedinUrl(e.target.value)}
+                                placeholder="https://www.linkedin.com/in/your-profile"
+                                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50 transition-all"
+                                disabled={!isEditing && !!linkedinProfile}
+                            />
+                            {!linkedinProfile ? (
+                                <button
+                                    onClick={saveLinkedInProfile}
+                                    disabled={isSaving || !linkedinUrl.trim()}
+                                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl font-semibold hover:from-blue-400 hover:to-blue-500 transition-all duration-300 disabled:opacity-50"
+                                >
+                                    {isSaving ? 'Saving...' : 'Save Profile'}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => setIsEditing(!isEditing)}
+                                    className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-2xl font-semibold hover:from-cyan-400 hover:to-cyan-500 transition-all duration-300"
+                                >
+                                    {isEditing ? 'Cancel' : 'Edit'}
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-xs text-white/50 mt-2">
+                            Example: https://www.linkedin.com/in/john-doe
+                        </p>
+                    </div>
+
+                    {linkedinProfile && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-white">Profile Information</h3>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setIsEditingProfile(!isEditingProfile)}
+                                        className="px-4 py-2 bg-cyan-500/20 text-cyan-300 rounded-xl text-sm hover:bg-cyan-500/30 transition-all"
+                                    >
+                                        {isEditingProfile ? 'Cancel' : 'Edit Profile'}
+                                    </button>
+                                    {isEditing && (
+                                        <button
+                                            onClick={saveLinkedInProfile}
+                                            disabled={isSaving}
+                                            className="px-4 py-2 bg-green-500/20 text-green-300 rounded-xl text-sm hover:bg-green-500/30 transition-all disabled:opacity-50"
+                                        >
+                                            {isSaving ? 'Saving...' : 'Save Changes'}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={deleteLinkedInProfile}
+                                        className="px-4 py-2 bg-red-500/20 text-red-300 rounded-xl text-sm hover:bg-red-500/30 transition-all"
+                                    >
+                                        Delete Profile
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isEditingProfile ? (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Name</label>
+                                            <input
+                                                type="text"
+                                                value={profileData.name}
+                                                onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50"
+                                                placeholder="Enter your name"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Current Job Title</label>
+                                            <input
+                                                type="text"
+                                                value={profileData.current_job_title}
+                                                onChange={(e) => setProfileData(prev => ({ ...prev, current_job_title: e.target.value }))}
+                                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50"
+                                                placeholder="Enter your job title"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Company</label>
+                                            <input
+                                                type="text"
+                                                value={profileData.company}
+                                                onChange={(e) => setProfileData(prev => ({ ...prev, company: e.target.value }))}
+                                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50"
+                                                placeholder="Enter your company"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Location</label>
+                                            <input
+                                                type="text"
+                                                value={profileData.location}
+                                                onChange={(e) => setProfileData(prev => ({ ...prev, location: e.target.value }))}
+                                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50"
+                                                placeholder="Enter your location"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-white/70 mb-1">Summary</label>
+                                        <textarea
+                                            value={profileData.summary}
+                                            onChange={(e) => setProfileData(prev => ({ ...prev, summary: e.target.value }))}
+                                            rows={3}
+                                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50"
+                                            placeholder="Enter your professional summary"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-white/70 mb-2">Skills</label>
+                                        <div className="flex gap-2 mb-2">
+                                            <input
+                                                type="text"
+                                                value={newSkill}
+                                                onChange={(e) => setNewSkill(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && addSkill()}
+                                                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50"
+                                                placeholder="Add a skill"
+                                            />
+                                            <button
+                                                onClick={addSkill}
+                                                className="px-4 py-2 bg-cyan-500/20 text-cyan-300 rounded-xl text-sm hover:bg-cyan-500/30 transition-all"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {profileData.skills.map((skill, index) => (
+                                                <span
+                                                    key={index}
+                                                    className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs flex items-center gap-2"
+                                                >
+                                                    {skill}
+                                                    <button
+                                                        onClick={() => removeSkill(skill)}
+                                                        className="text-blue-400 hover:text-blue-200"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={updateProfileData}
+                                            disabled={isSaving}
+                                            className="px-6 py-2 bg-green-500/20 text-green-300 rounded-xl text-sm hover:bg-green-500/30 transition-all disabled:opacity-50"
+                                        >
+                                            {isSaving ? 'Saving...' : 'Save Profile Data'}
+                                        </button>
+                                        <button
+                                            onClick={() => setIsEditingProfile(false)}
+                                            className="px-6 py-2 bg-gray-500/20 text-gray-300 rounded-xl text-sm hover:bg-gray-500/30 transition-all"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Name</label>
+                                            <p className="text-white">{linkedinProfile.name || 'Not available'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Current Job Title</label>
+                                            <p className="text-white">{linkedinProfile.current_job_title || 'Not available'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Company</label>
+                                            <p className="text-white">{linkedinProfile.company || 'Not available'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Location</label>
+                                            <p className="text-white">{linkedinProfile.location || 'Not available'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Skills</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {linkedinProfile.skills && linkedinProfile.skills.length > 0 ? (
+                                                    linkedinProfile.skills.map((skill, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs"
+                                                        >
+                                                            {skill}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-white/50">No skills listed</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-white/70 mb-1">Summary</label>
+                                            <p className="text-white text-sm line-clamp-3">
+                                                {linkedinProfile.summary || 'No summary available'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+
+            {/* Benefits Section */}
+            <motion.div
+                className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+            >
+                <h3 className="text-xl font-semibold text-white mb-6">Benefits of Connecting Your LinkedIn Profile</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-green-500/20 rounded-xl">
+                            <Check className="w-5 h-5 text-green-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Personalized Cover Letters</h4>
+                            <p className="text-white/70 text-sm">Generate tailored cover letters using your professional experience</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-blue-500/20 rounded-xl">
+                            <Zap className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Skill Matching</h4>
+                            <p className="text-white/70 text-sm">Match your skills with job requirements automatically</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-purple-500/20 rounded-xl">
+                            <Target className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Smart Applications</h4>
+                            <p className="text-white/70 text-sm">Get recommendations for jobs that match your profile</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-cyan-500/20 rounded-xl">
+                            <Shield className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Data Security</h4>
+                            <p className="text-white/70 text-sm">Your data is encrypted and stored securely</p>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
+function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null }) {
+    const [resumes, setResumes] = useState<Resume[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [dragActive, setDragActive] = useState(false);
+
+    const fetchResumes = async () => {
+        if (!userProfile?.user_id) return;
+
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/api/resume?userId=${userProfile.user_id}`);
+            if (response.ok) {
+                const data = await response.json();
+                setResumes(data.resumes || []);
+            }
+        } catch (error) {
+            console.error('❌ Error fetching resumes:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleFileSelect = (file: File) => {
+        if (!ProfileService.validateResumeFile(file)) {
+            toast.error('Invalid file type or size. Please upload a PDF, DOCX, DOC, or TXT file under 10MB.');
+            return;
+        }
+        setSelectedFile(file);
+    };
+
+    const handleFileUpload = async () => {
+        if (!userProfile?.user_id || !selectedFile) {
+            toast.error('Please select a file to upload');
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        try {
+            const formData = new FormData();
+            formData.append('userId', userProfile.user_id);
+            formData.append('file', selectedFile);
+
+            const response = await fetch('/api/resume', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                toast.success('Resume uploaded successfully!');
+                setSelectedFile(null);
+                setUploadProgress(0);
+                fetchResumes(); // Refresh the list
+            } else {
+                toast.error(data.error || 'Failed to upload resume');
+            }
+        } catch (error) {
+            console.error('❌ Error uploading resume:', error);
+            toast.error('Failed to upload resume');
+        } finally {
+            setIsUploading(false);
+            setUploadProgress(0);
+        }
+    };
+
+    const deleteResume = async (resumeId: string) => {
+        if (!userProfile?.user_id) return;
+
+        if (!confirm('Are you sure you want to delete this resume?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/resume?resumeId=${resumeId}&userId=${userProfile.user_id}`, {
+                method: 'DELETE',
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                toast.success('Resume deleted successfully!');
+                fetchResumes(); // Refresh the list
+            } else {
+                toast.error(data.error || 'Failed to delete resume');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting resume:', error);
+            toast.error('Failed to delete resume');
+        }
+    };
+
+    const handleDrag = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === 'dragenter' || e.type === 'dragover') {
+            setDragActive(true);
+        } else if (e.type === 'dragleave') {
+            setDragActive(false);
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFileSelect(e.dataTransfer.files[0]);
+        }
+    };
+
+    useEffect(() => {
+        fetchResumes();
+    }, [userProfile?.user_id]);
+
+    if (!userProfile) {
+        return (
+            <motion.div
+                className="flex items-center justify-center min-h-[400px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+            >
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-white/70">Loading profile...</p>
+                </div>
+            </motion.div>
+        );
+    }
+
+    return (
+        <motion.div
+            className="space-y-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-4xl font-bold text-white mb-2">Resume Upload</h1>
+                    <p className="text-white/70">Upload your resume to enhance your job applications</p>
+                </div>
+                <button
+                    onClick={fetchResumes}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-2xl font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all duration-300 disabled:opacity-50"
+                >
+                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                </button>
+            </div>
+
+            {/* Upload Section */}
+            <motion.div
+                className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+            >
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 bg-green-500/20 rounded-2xl">
+                        <FileText className="w-6 h-6 text-green-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white">Upload Resume</h2>
+                        <p className="text-white/70">Upload your resume in PDF, DOCX, DOC, or TXT format</p>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {/* File Upload Area */}
+                    <div
+                        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${dragActive
+                            ? 'border-cyan-400 bg-cyan-400/10'
+                            : 'border-white/20 hover:border-white/40'
+                            }`}
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                    >
+                        <div className="space-y-4">
+                            <div className="p-4 bg-white/5 rounded-2xl inline-block">
+                                <Upload className="w-8 h-8 text-white/70 mx-auto" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-white mb-2">
+                                    {selectedFile ? selectedFile.name : 'Drop your resume here'}
+                                </h3>
+                                <p className="text-white/70 mb-4">
+                                    {selectedFile
+                                        ? `Selected: ${selectedFile.name} (${(selectedFile.size / 1024 / 1024).toFixed(2)} MB)`
+                                        : 'or click to browse files'}
+                                </p>
+                                {!selectedFile && (
+                                    <label className="cursor-pointer">
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.docx,.doc,.txt"
+                                            onChange={(e) => {
+                                                if (e.target.files && e.target.files[0]) {
+                                                    handleFileSelect(e.target.files[0]);
+                                                }
+                                            }}
+                                            className="hidden"
+                                        />
+                                        <span className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl font-semibold hover:from-green-400 hover:to-green-500 transition-all duration-300">
+                                            Choose File
+                                        </span>
+                                    </label>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Upload Progress */}
+                    {isUploading && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm text-white/70">
+                                <span>Uploading...</span>
+                                <span>{uploadProgress}%</span>
+                            </div>
+                            <div className="w-full bg-white/10 rounded-full h-2">
+                                <div
+                                    className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Upload Button */}
+                    {selectedFile && !isUploading && (
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleFileUpload}
+                                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl font-semibold hover:from-green-400 hover:to-green-500 transition-all duration-300"
+                            >
+                                Upload Resume
+                            </button>
+                            <button
+                                onClick={() => setSelectedFile(null)}
+                                className="px-6 py-3 bg-gray-500/20 text-gray-300 rounded-2xl font-semibold hover:bg-gray-500/30 transition-all duration-300"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+
+            {/* Resumes List */}
+            <motion.div
+                className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+            >
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold text-white">Your Resumes</h3>
+                    <span className="text-white/70 text-sm">{resumes.length} resume(s)</span>
+                </div>
+
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="ml-3 text-white">Loading resumes...</span>
+                    </div>
+                ) : resumes.length === 0 ? (
+                    <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FileText className="w-8 h-8 text-white/50" />
+                        </div>
+                        <p className="text-white/70">No resumes uploaded yet</p>
+                        <p className="text-white/50 text-sm mt-2">Upload your first resume to get started</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {resumes.map((resume) => (
+                            <motion.div
+                                key={resume.id}
+                                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-green-500/20 rounded-xl">
+                                            <FileText className="w-6 h-6 text-green-400" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-white font-medium">{resume.file_name}</h4>
+                                            <div className="flex items-center gap-4 text-sm text-white/70 mt-1">
+                                                <span>{(resume.file_size || 0) / 1024 / 1024} MB</span>
+                                                <span>•</span>
+                                                <span>{resume.file_type}</span>
+                                                <span>•</span>
+                                                <span>Uploaded {new Date(resume.created_at || '').toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <a
+                                            href={resume.file_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-cyan-500/20 text-cyan-300 rounded-xl text-sm hover:bg-cyan-500/30 transition-all"
+                                        >
+                                            View
+                                        </a>
+                                        <button
+                                            onClick={() => deleteResume(resume.id!)}
+                                            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-xl text-sm hover:bg-red-500/30 transition-all"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Parsed Data Display */}
+                                {(resume.name || resume.email || resume.skills?.length) && (
+                                    <div className="mt-4 pt-4 border-t border-white/10">
+                                        <h5 className="text-sm font-medium text-white/70 mb-2">Parsed Information</h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                            {resume.name && (
+                                                <div>
+                                                    <span className="text-white/50">Name:</span>
+                                                    <span className="text-white ml-2">{resume.name}</span>
+                                                </div>
+                                            )}
+                                            {resume.email && (
+                                                <div>
+                                                    <span className="text-white/50">Email:</span>
+                                                    <span className="text-white ml-2">{resume.email}</span>
+                                                </div>
+                                            )}
+                                            {resume.skills && resume.skills.length > 0 && (
+                                                <div className="md:col-span-3">
+                                                    <span className="text-white/50">Skills:</span>
+                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                        {resume.skills.slice(0, 5).map((skill, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="px-2 py-1 bg-green-500/20 text-green-300 rounded-full text-xs"
+                                                            >
+                                                                {skill}
+                                                            </span>
+                                                        ))}
+                                                        {resume.skills.length > 5 && (
+                                                            <span className="text-white/50 text-xs">
+                                                                +{resume.skills.length - 5} more
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
+            </motion.div>
+
+            {/* Benefits Section */}
+            <motion.div
+                className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+            >
+                <h3 className="text-xl font-semibold text-white mb-6">Benefits of Uploading Your Resume</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-green-500/20 rounded-xl">
+                            <Check className="w-5 h-5 text-green-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Smart Parsing</h4>
+                            <p className="text-white/70 text-sm">Automatically extract skills, experience, and education</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-blue-500/20 rounded-xl">
+                            <Target className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Job Matching</h4>
+                            <p className="text-white/70 text-sm">Find jobs that match your skills and experience</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-purple-500/20 rounded-xl">
+                            <Zap className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Quick Applications</h4>
+                            <p className="text-white/70 text-sm">Apply to jobs with pre-filled information</p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-cyan-500/20 rounded-xl">
+                            <Shield className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div>
+                            <h4 className="text-white font-medium mb-1">Secure Storage</h4>
+                            <p className="text-white/70 text-sm">Your resume is encrypted and stored securely</p>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
 function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, userProfile, setUserProfile, onUpgrade, onRefresh, isLoadingProfile }: {
     selected: string,
     selectedUser: any,
@@ -2148,6 +3110,12 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
                     )}
                     {selected === 'pricing' && (
                         <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} onRefresh={onRefresh} isLoadingProfile={isLoadingProfile} />
+                    )}
+                    {selected === 'linkedin-profile' && (
+                        <LinkedInProfileSection userProfile={userProfile} />
+                    )}
+                    {selected === 'resume-upload' && (
+                        <ResumeUploadSection userProfile={userProfile} />
                     )}
                 </AnimatePresence>
             </div>
