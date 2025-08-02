@@ -325,6 +325,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const validateForm = (): boolean => {
+    console.log('🔍 validateForm called with formData:', formData);
     const newErrors: FormErrors = {};
     if (!formData.jobTitle.trim()) newErrors.jobTitle = 'Job title is required';
     if (!formData.location.trim()) newErrors.location = 'Location is required';
@@ -333,8 +334,11 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
+    console.log('🔍 Validation errors:', newErrors);
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log('🔍 Form is valid:', isValid);
+    return isValid;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -351,10 +355,14 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
   // Only validate and call parent handleSubmit
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 onFormSubmit called');
     if (validateForm()) {
+      console.log('🔍 Form is valid, calling handleSubmit');
       handleSubmit(e);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
+    } else {
+      console.log('🔍 Form validation failed');
     }
   };
 
@@ -455,6 +463,7 @@ const JobScanForm = ({ formData, setFormData, handleSubmit, isSubmitting }: {
                   className="bg-cyan-700/90 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-xl hover:bg-cyan-600/90 inline-flex items-center space-x-3 cursor-pointer"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => console.log('🔍 Submit button clicked, isSubmitting:', isSubmitting)}
                 >
                   {isSubmitting ? (
                     <>
@@ -804,7 +813,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
 
 // Main Component
 const KronJobsLanding = () => {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     jobTitle: '',
@@ -814,8 +823,89 @@ const KronJobsLanding = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const tasksRef = useRef<HTMLDivElement>(null);
+
+  // Fetch user profile when signed in
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      console.log('🔍 fetchUserProfile called - isSignedIn:', isSignedIn, 'user:', user?.emailAddresses?.[0]?.emailAddress);
+
+      // Only proceed if user is signed in and has email
+      if (!isSignedIn || !user?.emailAddresses?.[0]?.emailAddress) {
+        console.log('🔍 User not signed in or no email, setting profile to null');
+        setUserProfile(null);
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      setIsLoadingProfile(true);
+      try {
+        console.log('🔍 Fetching user profile for:', user.emailAddresses[0].emailAddress);
+        const response = await fetch(`/api/user-profile?email=${encodeURIComponent(user.emailAddresses[0].emailAddress)}`);
+        console.log('🔍 Response status:', response.status);
+
+        if (response.ok) {
+          const profile = await response.json();
+          console.log('🔍 User profile fetched:', profile);
+
+          if (profile) {
+            console.log('✅ Setting user profile:', profile);
+            setUserProfile(profile);
+          } else {
+            // Profile is null, create one
+            console.log('🔍 Profile is null, creating new user profile...');
+            const createResponse = await fetch('/api/user-profile', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.emailAddresses[0].emailAddress,
+                email: user.emailAddresses[0].emailAddress
+              })
+            });
+
+            if (createResponse.ok) {
+              const newProfile = await createResponse.json();
+              console.log('✅ Created new user profile:', newProfile.profile);
+              setUserProfile(newProfile.profile);
+            } else {
+              console.error('❌ Failed to create user profile');
+            }
+          }
+        } else if (response.status === 404) {
+          // User profile doesn't exist, create one
+          console.log('🔍 Creating new user profile (404 response)...');
+          const createResponse = await fetch('/api/user-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.emailAddresses[0].emailAddress,
+              email: user.emailAddresses[0].emailAddress
+            })
+          });
+
+          if (createResponse.ok) {
+            const newProfile = await createResponse.json();
+            console.log('✅ Created new user profile (404):', newProfile.profile);
+            setUserProfile(newProfile.profile);
+          } else {
+            console.error('❌ Failed to create user profile');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error fetching user profile:', error);
+      } finally {
+        console.log('🔍 Setting isLoadingProfile to false');
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [isSignedIn, user]);
+
+
 
   // Scroll to form
   const scrollToForm = () => {
@@ -838,9 +928,11 @@ const KronJobsLanding = () => {
   // Enhanced handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 handleSubmit called with formData:', formData);
     setIsSubmitting(true);
     try {
       // 1. Save preferences
+      console.log('🔍 Saving preferences...');
       const prefRes = await fetch('/api/submit-preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -854,24 +946,30 @@ const KronJobsLanding = () => {
           email: formData.email,
         }),
       });
+      console.log('🔍 Preferences response status:', prefRes.status);
       if (!prefRes.ok) throw new Error('Failed to save preferences');
 
       // 2. Start scraping
+      console.log('🔍 Starting scraping...');
       const scrapeRes = await fetch('/api/start-scraping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: formData.email }),
       });
       const scrapeData = await scrapeRes.json();
+      console.log('🔍 Scraping response:', scrapeData);
       if (!scrapeRes.ok) throw new Error(scrapeData.error || 'Failed to start scraping');
 
       // 3. Fetch and show tasks
+      console.log('🔍 Fetching tasks...');
       await fetchTasks(formData.email);
       setFormData({ jobTitle: '', location: '', email: '' });
       setTimeout(scrollToTasks, 500); // Scroll to results
     } catch (err) {
+      console.error('❌ Error in handleSubmit:', err);
       // Optionally show error UI
     } finally {
+      console.log('🔍 Setting isSubmitting to false');
       setIsSubmitting(false);
     }
   };
@@ -1006,7 +1104,7 @@ const KronJobsLanding = () => {
         </div>
       </div>
       <FeatureCards />
-      <PricingSection showFAQ={false} />
+      <PricingSection userProfile={userProfile} showFAQ={false} isLoadingProfile={isLoadingProfile} />
       <HowItWorksSteps />
       <Footer isSignedIn={Boolean(isSignedIn)} router={router} />
       {/* Mobile Sticky CTA */}

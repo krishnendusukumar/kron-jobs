@@ -2,14 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Star, Zap, Shield, Clock, AlertCircle, Crown, Sparkles, Rocket } from 'lucide-react';
+import { Check, Star, Zap, Shield, Clock, AlertCircle, Crown, Sparkles, Rocket, LogIn } from 'lucide-react';
 import { UserProfileService, PricingPlan, UserProfile } from '../../lib/user-profile-service';
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 
 interface PricingSectionProps {
     userProfile?: UserProfile | null;
     onUpgrade?: (plan: 'weekly' | 'monthly') => void;
     className?: string;
     showFAQ?: boolean;
+    isLoadingProfile?: boolean;
 }
 
 interface DodoPaymentResponse {
@@ -21,15 +24,51 @@ const PricingSection: React.FC<PricingSectionProps> = ({
     userProfile,
     onUpgrade,
     className = "",
-    showFAQ = true
+    showFAQ = true,
+    isLoadingProfile = false
 }) => {
+    const { isSignedIn } = useUser();
+    const router = useRouter();
     const [plans] = useState<PricingPlan[]>(UserProfileService.getPricingPlans());
     const [isUpgrading, setIsUpgrading] = useState(false);
     const [upgradeError, setUpgradeError] = useState<string | null>(null);
     const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
+    // Debug logging
+    useEffect(() => {
+        console.log('🔍 PricingSection - userProfile:', userProfile, 'isLoadingProfile:', isLoadingProfile);
+        console.log('🔍 PricingSection - should show profile section:', (userProfile || isLoadingProfile));
+        if (userProfile) {
+            console.log('🔍 PricingSection - userProfile details:', {
+                plan: userProfile.plan,
+                credits_remaining: userProfile.credits_remaining,
+                max_cron_jobs: userProfile.max_cron_jobs,
+                max_daily_fetches: userProfile.max_daily_fetches
+            });
+        }
+    }, [userProfile, isLoadingProfile]);
+
+    // Plan hierarchy for comparison
+    const planHierarchy = {
+        'free': 0,
+        'weekly': 1,
+        'monthly': 2
+    };
+
     const handleUpgrade = async (planId: string) => {
-        if (!userProfile || planId === 'free') return;
+        if (planId === 'free') return;
+
+        // If user is not signed in, redirect to login with return URL
+        if (!isSignedIn) {
+            const returnUrl = encodeURIComponent('/dashboard?tab=pricing');
+            router.push(`/sign-in?redirect_url=${returnUrl}`);
+            return;
+        }
+
+        if (!userProfile) {
+            setUpgradeError('Please complete your profile setup first.');
+            return;
+        }
 
         setIsUpgrading(true);
         setUpgradeError(null);
@@ -37,11 +76,22 @@ const PricingSection: React.FC<PricingSectionProps> = ({
         try {
             // Dodo payment integration for paid plans
             if (planId === 'weekly' || planId === 'monthly') {
-                // Build the Dodo payment link dynamically
-                const productId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID;
+                // Build the Dodo payment link dynamically based on plan type
+                const weeklyProductId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID_WEEKLY;
+                const monthlyProductId = process.env.NEXT_PUBLIC_DODO_PRODUCT_ID_MONTHLY;
+
+                let productId;
+                if (planId === 'weekly') {
+                    productId = weeklyProductId;
+                } else if (planId === 'monthly') {
+                    productId = monthlyProductId;
+                }
+
                 console.log('🔍 Dodo payment check:', {
                     planId,
-                    productId: productId ? 'SET' : 'MISSING',
+                    weeklyProductId: weeklyProductId ? 'SET' : 'MISSING',
+                    monthlyProductId: monthlyProductId ? 'SET' : 'MISSING',
+                    selectedProductId: productId ? 'SET' : 'MISSING',
                     userProfileEmail: userProfile.email,
                     userProfileId: userProfile.user_id
                 });
@@ -87,46 +137,52 @@ const PricingSection: React.FC<PricingSectionProps> = ({
     };
 
     const getCurrentPlan = () => {
-        return userProfile?.plan || 'free';
+        if (!userProfile) return 'free';
+        return userProfile.plan || 'free';
     };
 
     const isCurrentPlan = (planId: string) => {
-        return getCurrentPlan() === planId;
+        const currentPlan = getCurrentPlan();
+        return currentPlan === planId;
     };
 
     const canUpgrade = (planId: string) => {
         const currentPlan = getCurrentPlan();
+        const currentPlanLevel = planHierarchy[currentPlan as keyof typeof planHierarchy] || 0;
+        const targetPlanLevel = planHierarchy[planId as keyof typeof planHierarchy] || 0;
         const isCurrent = isCurrentPlan(planId);
-        const hasProfile = !!userProfile;
 
-        console.log('🔍 canUpgrade check:', {
-            planId,
-            currentPlan,
-            isCurrent,
-            hasProfile,
-            isFreePlan: planId === 'free',
-            isProPlan: planId === 'pro'
-        });
-
+        // Can't upgrade to free plan
         if (planId === 'free') {
-            console.log('❌ Free plan cannot be upgraded');
             return false;
         }
-        if (planId === 'free') {
-            console.log('❌ Free plan cannot be upgraded');
-            return false;
-        }
+
+        // Can't upgrade to current plan
         if (isCurrent) {
-            console.log('❌ User already has this plan');
             return false;
         }
-        if (!hasProfile) {
-            console.log('❌ No user profile found');
-            return false; // Need user profile to upgrade
-        }
 
-        console.log('✅ Plan can be upgraded');
-        return true;
+        // Can upgrade to higher plans
+        return targetPlanLevel > currentPlanLevel;
+    };
+
+
+
+    const getButtonText = (planId: string) => {
+        if (planId === 'free') return 'Current Plan';
+        if (isCurrentPlan(planId)) return '✓ Current Plan';
+        if (!isSignedIn) return 'Sign In to Buy';
+        if (!userProfile) return 'Complete Setup';
+        return 'Buy Now';
+    };
+
+    const getButtonState = (planId: string) => {
+        if (planId === 'free') return 'disabled';
+        if (isCurrentPlan(planId)) return 'current';
+        if (!isSignedIn) return 'login';
+        if (!userProfile) return 'disabled';
+        if (canUpgrade(planId)) return 'upgrade';
+        return 'disabled';
     };
 
     const getPlanIcon = (planId: string) => {
@@ -155,6 +211,22 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                 return 'from-purple-600/20 to-pink-600/20';
             default:
                 return 'from-slate-800 to-slate-900';
+        }
+    };
+
+    const getButtonClasses = (planId: string, isPopular: boolean) => {
+        const state = getButtonState(planId);
+
+        switch (state) {
+            case 'current':
+                return 'w-full py-4 px-8 bg-gradient-to-r from-cyan-600 to-cyan-700 text-white rounded-2xl font-bold text-lg cursor-not-allowed border border-cyan-600';
+            case 'upgrade':
+                return `w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg bg-[#0a182e] text-white border-0 hover:bg-[#162a4d] disabled:opacity-50 disabled:cursor-not-allowed`;
+            case 'login':
+                return `w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-0 hover:from-cyan-600 hover:to-blue-700`;
+            case 'disabled':
+            default:
+                return 'w-full py-4 px-8 bg-gradient-to-r from-slate-700 to-slate-800 text-slate-400 rounded-2xl font-bold text-lg cursor-not-allowed border border-slate-600';
         }
     };
 
@@ -242,8 +314,22 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                     </div>
                                 )}
 
+
+
                                 {/* Plan Icon & Header */}
                                 <div className="text-center mb-8 pt-4">
+                                    {/* Current Plan Badge */}
+                                    {isCurrentPlan(plan.id) && (
+                                        <motion.div
+                                            className="absolute -top-2 right-4 bg-cyan-500 text-white px-3 py-1 rounded-full text-xs font-bold"
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                        >
+                                            CURRENT
+                                        </motion.div>
+                                    )}
+
                                     <motion.div
                                         className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 ${plan.isPopular
                                             ? 'bg-gradient-to-br from-cyan-400/20 to-blue-500/20 text-cyan-400'
@@ -325,51 +411,33 @@ const PricingSection: React.FC<PricingSectionProps> = ({
 
                                 {/* Action Button */}
                                 <div className="text-center">
-                                    {isCurrentPlan(plan.id) ? (
-                                        <motion.button
-                                            disabled
-                                            className="w-full py-4 px-8 bg-gradient-to-r from-slate-600 to-slate-700 text-slate-300 rounded-2xl font-bold text-lg cursor-not-allowed border border-slate-600"
-                                            whileHover={{ scale: 1.02 }}
-                                        >
-                                            ✓ Current Plan
-                                        </motion.button>
-                                    ) : canUpgrade(plan.id) ? (
-                                        <motion.button
-                                            onClick={() => handleUpgrade(plan.id)}
-                                            disabled={isUpgrading}
-                                            className={`w-full py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg bg-[#0a182e] text-white border-0 hover:bg-[#162a4d] disabled:opacity-50 disabled:cursor-not-allowed`}
-                                            whileHover={{
-                                                scale: 1.02,
-                                                boxShadow: plan.isPopular
-                                                    ? "0 20px 40px rgba(6, 182, 212, 0.4)"
-                                                    : "0 20px 40px rgba(71, 85, 105, 0.4)"
-                                            }}
-                                            whileTap={{ scale: 0.98 }}
-                                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                                        >
-                                            {isUpgrading ? (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                    Upgrading...
-                                                </div>
-                                            ) : plan.isPopular ? (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <Zap className="w-5 h-5" />
-                                                    Upgrade Now
-                                                </div>
-                                            ) : (
-                                                'Get Started'
-                                            )}
-                                        </motion.button>
-                                    ) : (
-                                        <motion.button
-                                            disabled
-                                            className="w-full py-4 px-8 bg-gradient-to-r from-slate-700 to-slate-800 text-slate-400 rounded-2xl font-bold text-lg cursor-not-allowed border border-slate-600"
-                                            whileHover={{ scale: 1.02 }}
-                                        >
-                                            {plan.isComingSoon ? 'Coming Soon' : 'Unavailable'}
-                                        </motion.button>
-                                    )}
+                                    <motion.button
+                                        onClick={() => handleUpgrade(plan.id)}
+                                        disabled={getButtonState(plan.id) === 'disabled' || getButtonState(plan.id) === 'current' || isUpgrading}
+                                        className={getButtonClasses(plan.id, plan.isPopular || false)}
+                                        whileHover={{
+                                            scale: getButtonState(plan.id) !== 'disabled' ? 1.02 : 1,
+                                            boxShadow: plan.isPopular && getButtonState(plan.id) !== 'disabled'
+                                                ? "0 20px 40px rgba(6, 182, 212, 0.4)"
+                                                : "0 20px 40px rgba(71, 85, 105, 0.4)"
+                                        }}
+                                        whileTap={{ scale: 0.98 }}
+                                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                    >
+                                        {isUpgrading ? (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                Upgrading...
+                                            </div>
+                                        ) : getButtonState(plan.id) === 'login' ? (
+                                            <div className="flex items-center justify-center gap-2">
+                                                <LogIn className="w-5 h-5" />
+                                                Sign In to Buy
+                                            </div>
+                                        ) : (
+                                            getButtonText(plan.id)
+                                        )}
+                                    </motion.button>
                                 </div>
 
                                 {/* Error Message */}
@@ -392,7 +460,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                 </div>
 
                 {/* Current Plan Info */}
-                {userProfile && (
+                {(userProfile || isLoadingProfile || isSignedIn) && (
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -406,26 +474,26 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                                     Your Current Plan
                                 </h4>
                                 <div className="text-3xl font-black text-white">
-                                    {plans.find(p => p.id === getCurrentPlan())?.name}
+                                    {isLoadingProfile ? 'Loading...' : (plans.find(p => p.id === getCurrentPlan())?.name || 'Free')}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-3 gap-6">
                                 <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-slate-600/30">
                                     <div className="text-2xl font-bold text-cyan-400 mb-1">
-                                        {userProfile.credits_remaining}
+                                        {isLoadingProfile ? '...' : (userProfile?.credits_remaining || 3)}
                                     </div>
                                     <div className="text-slate-400 text-sm font-medium">Credits Left</div>
                                 </div>
                                 <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-slate-600/30">
                                     <div className="text-2xl font-bold text-blue-400 mb-1">
-                                        {userProfile.max_cron_jobs}
+                                        {isLoadingProfile ? '...' : (userProfile?.max_cron_jobs || 0)}
                                     </div>
                                     <div className="text-slate-400 text-sm font-medium">Cron Jobs</div>
                                 </div>
                                 <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-slate-600/30">
                                     <div className="text-2xl font-bold text-purple-400 mb-1">
-                                        {userProfile.max_daily_fetches}
+                                        {isLoadingProfile ? '...' : (userProfile?.max_daily_fetches || 3)}
                                     </div>
                                     <div className="text-slate-400 text-sm font-medium">Daily Fetches</div>
                                 </div>

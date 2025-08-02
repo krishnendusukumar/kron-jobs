@@ -15,7 +15,8 @@ Add these to your `.env.local` file and Vercel environment variables:
 ```bash
 # Dodo Payment Gateway
 DODO_WEBHOOK_KEY=your_webhook_signing_key_here
-NEXT_PUBLIC_DODO_PRODUCT_ID=your_dodo_product_id_here
+NEXT_PUBLIC_DODO_PRODUCT_ID_WEEKLY=your_weekly_dodo_product_id_here
+NEXT_PUBLIC_DODO_PRODUCT_ID_MONTHLY=your_monthly_dodo_product_id_here
 
 # Optional: For advanced features
 DODO_PAYMENTS_API_KEY=your_api_key_here
@@ -112,7 +113,7 @@ Watch for these error patterns:
    - Review webhook payload format in logs
 
 3. **Missing environment variables**
-   - Ensure `NEXT_PUBLIC_DODO_PRODUCT_ID` is set for frontend redirects
+   - Ensure `NEXT_PUBLIC_DODO_PRODUCT_ID_WEEKLY` and `NEXT_PUBLIC_DODO_PRODUCT_ID_MONTHLY` are set for frontend redirects
    - Verify `DODO_WEBHOOK_SECRET` is set for backend verification
 
 ## 🔧 Technical Details

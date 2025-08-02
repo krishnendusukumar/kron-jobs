@@ -20,24 +20,19 @@ export async function GET(request: NextRequest) {
         if (userId) {
             profile = await UserProfileService.getUserProfile(userId);
         } else if (email) {
-            // For email-based lookup, we'll need to find by email
-            // This would require a different approach since our service uses userId
-            return NextResponse.json(
-                { error: 'Email-based lookup not implemented yet' },
-                { status: 400 }
-            );
+            // For email-based lookup, we'll use the email as userId
+            // This is a common pattern where email serves as the user identifier
+            profile = await UserProfileService.getUserProfile(email);
         }
 
         if (!profile) {
-            console.log('❌ No user profile found for user ID:', userId, '(This is normal for new users)');
-            return NextResponse.json(
-                { error: 'User profile not found' },
-                { status: 404 }
-            );
+            console.log('❌ No user profile found for user ID:', userId || email, '(This is normal for new users)');
+            // Return null instead of 404 for new users
+            return NextResponse.json(null);
         }
 
         console.log('✅ Debug - User profile fetched successfully:', profile ? 'Found' : 'Not found');
-        return NextResponse.json({ profile });
+        return NextResponse.json(profile);
     } catch (error) {
         console.error('Error in GET /api/user-profile:', error);
         return NextResponse.json(

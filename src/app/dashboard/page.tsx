@@ -1591,7 +1591,7 @@ function DashboardMain({ selected, selectedUser, onSelectUser, onUserCreated, us
                         <TasksSection selectedUser={selectedUser} userProfile={userProfile} />
                     )}
                     {selected === 'pricing' && (
-                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} />
+                        <PricingSection userProfile={userProfile} onUpgrade={onUpgrade} isLoadingProfile={false} />
                     )}
                 </AnimatePresence>
             </div>
