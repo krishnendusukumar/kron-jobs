@@ -1756,6 +1756,9 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
     const [stats, setStats] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+    const [selectedJobType, setSelectedJobType] = useState<string | null>(null);
+    const [jobList, setJobList] = useState<any[]>([]);
+    const [isLoadingJobs, setIsLoadingJobs] = useState(false);
 
     const fetchAnalytics = async () => {
         if (!userProfile?.user_id) return;
@@ -1774,16 +1777,60 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
         }
     };
 
+    const fetchJobsByStatus = async (status: string) => {
+        if (!userProfile?.user_id) return;
+
+        setIsLoadingJobs(true);
+        try {
+            const params = new URLSearchParams({
+                userId: userProfile.user_id,
+                limit: '50'
+            });
+
+            // Add status filter
+            if (status === 'applied') {
+                params.append('applied', 'true');
+            } else if (status === 'hidden') {
+                params.append('hidden', 'true');
+            } else if (status === 'interview') {
+                params.append('interview', 'true');
+            } else if (status === 'rejected') {
+                params.append('rejected', 'true');
+            }
+
+            const response = await fetch(`/api/jobs?${params}`);
+            if (response.ok) {
+                const data = await response.json();
+                setJobList(data.jobs || []);
+                setSelectedJobType(status);
+            }
+        } catch (error) {
+            console.error('❌ Error fetching jobs by status:', error);
+        } finally {
+            setIsLoadingJobs(false);
+        }
+    };
+
+    const closeJobList = () => {
+        setSelectedJobType(null);
+        setJobList([]);
+    };
+
     useEffect(() => {
         fetchAnalytics();
     }, [userProfile?.user_id]);
 
-    const getStatCard = (title: string, value: number, icon: any, color: string, description?: string) => (
+    const getStatCard = (title: string, value: number, icon: any, color: string, description?: string, status?: string) => (
         <motion.div
-            className={`bg-gradient-to-br ${color} backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl`}
+            className={`bg-gradient-to-br ${color} backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl cursor-pointer hover:scale-105 transition-all duration-300 ${value > 0 ? 'hover:shadow-lg' : 'opacity-60 cursor-not-allowed'}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
+            onClick={() => {
+                if (value > 0 && status) {
+                    fetchJobsByStatus(status);
+                }
+            }}
         >
             <div className="flex items-center justify-between mb-4">
                 <div className="p-3 bg-white/10 rounded-2xl">
@@ -1796,6 +1843,9 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
             </div>
             {description && (
                 <div className="text-xs text-white/60 mt-2">{description}</div>
+            )}
+            {value > 0 && status && (
+                <div className="text-xs text-white/40 mt-2">Click to view jobs</div>
             )}
         </motion.div>
     );
@@ -1850,8 +1900,98 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
                 </button>
             </div>
 
+            {/* Job List Modal */}
+            {selectedJobType && (
+                <motion.div
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={closeJobList}
+                >
+                    <motion.div
+                        className="bg-gradient-to-br from-slate-800/90 to-slate-700/90 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden"
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-white mb-2">
+                                    {selectedJobType === 'applied' && 'Applied Jobs'}
+                                    {selectedJobType === 'hidden' && 'Hidden Jobs'}
+                                    {selectedJobType === 'interview' && 'Interview Jobs'}
+                                    {selectedJobType === 'rejected' && 'Rejected Jobs'}
+                                </h2>
+                                <p className="text-white/70">
+                                    {jobList.length} jobs found
+                                </p>
+                            </div>
+                            <button
+                                onClick={closeJobList}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            >
+                                <X className="w-6 h-6 text-white" />
+                            </button>
+                        </div>
+
+                        {isLoadingJobs ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                                <span className="ml-3 text-white">Loading jobs...</span>
+                            </div>
+                        ) : jobList.length === 0 ? (
+                            <div className="text-center py-12">
+                                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Database className="w-8 h-8 text-white/50" />
+                                </div>
+                                <p className="text-white/70">No jobs found for this category</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-y-auto max-h-[60vh] space-y-4">
+                                {jobList.map((job: any, index: number) => (
+                                    <motion.div
+                                        key={job.id}
+                                        className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <h3 className="text-lg font-semibold text-white mb-1 line-clamp-2">
+                                                    {job.title}
+                                                </h3>
+                                                <p className="text-cyan-300 font-medium mb-1">{job.company}</p>
+                                                <p className="text-gray-400 text-sm mb-2">{job.location}</p>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                    <span>{job.date}</span>
+                                                    <span>•</span>
+                                                    <span>Added {new Date(job.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-4">
+                                                <a
+                                                    href={job.job_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-xs hover:bg-cyan-500/30 transition-colors"
+                                                >
+                                                    View Job
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                </motion.div>
+            )}
+
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {getStatCard(
                     'Total Jobs',
                     stats?.total || 0,
@@ -1864,21 +2004,32 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
                     stats?.applied || 0,
                     <CheckCircle className="w-6 h-6" />,
                     'from-green-500/20 to-green-600/20',
-                    'Jobs you\'ve applied to'
+                    'Jobs you\'ve applied to',
+                    'applied'
                 )}
                 {getStatCard(
                     'Hidden',
                     stats?.hidden || 0,
                     <Eye className="w-6 h-6" />,
                     'from-yellow-500/20 to-yellow-600/20',
-                    'Jobs you\'ve hidden'
+                    'Jobs you\'ve hidden',
+                    'hidden'
                 )}
                 {getStatCard(
                     'Interviews',
                     stats?.interview || 0,
                     <Calendar className="w-6 h-6" />,
                     'from-purple-500/20 to-purple-600/20',
-                    'Jobs with interviews'
+                    'Jobs with interviews',
+                    'interview'
+                )}
+                {getStatCard(
+                    'Rejected',
+                    stats?.rejected || 0,
+                    <XCircle className="w-6 h-6" />,
+                    'from-red-500/20 to-red-600/20',
+                    'Jobs you were rejected from',
+                    'rejected'
                 )}
             </div>
 
