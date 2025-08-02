@@ -39,8 +39,8 @@ const PricingSection: React.FC<PricingSectionProps> = ({
 
     // Debug logging
     useEffect(() => {
-        console.log('🔍 PricingSection - userProfile:', userProfile, 'isLoadingProfile:', isLoadingProfile);
-        console.log('🔍 PricingSection - should show profile section:', (userProfile || isLoadingProfile));
+        console.log('🔍 PricingSection - userProfile:', userProfile, 'isLoadingProfile:', isLoadingProfile, 'isSignedIn:', isSignedIn);
+        console.log('🔍 PricingSection - should show profile section:', (userProfile || isLoadingProfile || isSignedIn));
         if (userProfile) {
             console.log('🔍 PricingSection - userProfile details:', {
                 plan: userProfile.plan,
@@ -49,7 +49,7 @@ const PricingSection: React.FC<PricingSectionProps> = ({
                 max_daily_fetches: userProfile.max_daily_fetches
             });
         }
-    }, [userProfile, isLoadingProfile]);
+    }, [userProfile, isLoadingProfile, isSignedIn]);
 
     // Plan hierarchy for comparison
     const planHierarchy = {

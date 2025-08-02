@@ -813,7 +813,7 @@ const JobsDashboard = ({ email }: { email: string }) => {
 
 // Main Component
 const KronJobsLanding = () => {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user, isLoaded } = useUser();
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     jobTitle: '',
@@ -833,6 +833,12 @@ const KronJobsLanding = () => {
 
   // Fetch user profile when signed in
   useEffect(() => {
+    // Wait for Clerk to be fully loaded before proceeding
+    if (!isLoaded) {
+      console.log('⏳ Waiting for Clerk to load...');
+      return;
+    }
+
     const fetchUserProfile = async () => {
       console.log('🔍 fetchUserProfile called - isSignedIn:', isSignedIn, 'user:', user?.emailAddresses?.[0]?.emailAddress);
 
@@ -896,9 +902,48 @@ const KronJobsLanding = () => {
           } else {
             console.error('❌ Failed to create user profile');
           }
+        } else {
+          // Handle other error cases by creating a profile
+          console.log('🔍 Response not ok, creating new user profile as fallback...');
+          const createResponse = await fetch('/api/user-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.emailAddresses[0].emailAddress,
+              email: user.emailAddresses[0].emailAddress
+            })
+          });
+
+          if (createResponse.ok) {
+            const newProfile = await createResponse.json();
+            console.log('✅ Created new user profile (fallback):', newProfile.profile);
+            setUserProfile(newProfile.profile);
+          } else {
+            console.error('❌ Failed to create user profile');
+          }
         }
       } catch (error) {
         console.error('❌ Error fetching user profile:', error);
+        // Try to create profile even if fetch fails
+        try {
+          console.log('🔍 Attempting to create user profile after fetch error...');
+          const createResponse = await fetch('/api/user-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.emailAddresses[0].emailAddress,
+              email: user.emailAddresses[0].emailAddress
+            })
+          });
+
+          if (createResponse.ok) {
+            const newProfile = await createResponse.json();
+            console.log('✅ Created new user profile (error fallback):', newProfile.profile);
+            setUserProfile(newProfile.profile);
+          }
+        } catch (createError) {
+          console.error('❌ Failed to create user profile after fetch error:', createError);
+        }
       } finally {
         console.log('🔍 Setting isLoadingProfile to false');
         setIsLoadingProfile(false);
@@ -983,6 +1028,18 @@ const KronJobsLanding = () => {
     console.log('🔍 handleSubmit called with formData:', formData);
     setIsSubmitting(true);
     try {
+      // 0. Ensure user profile exists (for production)
+      console.log('🔍 Ensuring user profile exists...');
+      const profileRes = await fetch('/api/user-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: formData.email,
+          email: formData.email
+        }),
+      });
+      console.log('🔍 Profile creation response status:', profileRes.status);
+
       // 1. Save preferences
       console.log('🔍 Saving preferences...');
       const prefRes = await fetch('/api/submit-preferences', {
@@ -1046,6 +1103,18 @@ const KronJobsLanding = () => {
       setIsLoadingProfile(false);
     }
   };
+
+  // Show loading state while Clerk is loading
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0a182e] via-[#1a2a3d] to-[#0a182e] relative overflow-hidden flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+          <div className="text-cyan-400 text-lg font-medium">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a182e] to-[#1a2a3d] text-white overflow-x-hidden max-w-full w-full">
@@ -1180,7 +1249,7 @@ const KronJobsLanding = () => {
       <PricingSection
         userProfile={userProfile}
         showFAQ={false}
-        isLoadingProfile={isLoadingProfile}
+        isLoadingProfile={isLoadingProfile || (isSignedIn && !userProfile)}
         onRefresh={refreshUserProfile}
       />
       <HowItWorksSteps />
