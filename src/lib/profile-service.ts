@@ -4,7 +4,7 @@ import { ResumeParser, ParsedResume } from './resume-parser';
 export interface Resume {
     id: string;
     user_id: string;
-    filename: string;
+    file_name: string;
     file_url: string;
     file_size: number;
     upload_date: string;
@@ -42,10 +42,17 @@ export class ProfileService {
             // Upload file to Supabase Storage
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('resumes')
-                .upload(filename, file);
+                .upload(filename, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
 
             if (uploadError) {
                 console.error('Error uploading file:', uploadError);
+                // If bucket doesn't exist, try to create it
+                if (uploadError.message.includes('bucket') || uploadError.message.includes('not found')) {
+                    console.log('Storage bucket not found, please run the storage setup migration');
+                }
                 return null;
             }
 
@@ -59,7 +66,7 @@ export class ProfileService {
                 .from('resumes')
                 .insert({
                     user_id: userId,
-                    filename: file.name,
+                    file_name: file.name,
                     file_url: urlData.publicUrl,
                     file_size: file.size,
                     upload_date: new Date().toISOString()
@@ -69,6 +76,8 @@ export class ProfileService {
 
             if (error) {
                 console.error('Error saving resume record:', error);
+                // Try to delete the uploaded file if database insert fails
+                await supabase.storage.from('resumes').remove([filename]);
                 return null;
             }
 
@@ -163,5 +172,37 @@ export class ProfileService {
         const maxSize = 10 * 1024 * 1024; // 10MB
 
         return allowedTypes.includes(file.type) && file.size <= maxSize;
+    }
+
+    /**
+     * Upload file to Supabase storage
+     */
+    static async uploadFile(file: File, userId: string, folder: string): Promise<string | null> {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${userId}/${folder}/${Date.now()}.${fileExt}`;
+
+            const { data, error } = await supabase.storage
+                .from('resumes')
+                .upload(fileName, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (error) {
+                console.error('Error uploading file:', error);
+                return null;
+            }
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('resumes')
+                .getPublicUrl(fileName);
+
+            return urlData.publicUrl;
+        } catch (error) {
+            console.error('Error in uploadFile:', error);
+            return null;
+        }
     }
 } 

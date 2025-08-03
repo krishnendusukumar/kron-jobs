@@ -1,42 +1,35 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-    User, Mail, Phone, MapPin, Briefcase, GraduationCap,
-    Award, Globe, Code, Calendar, Building, ExternalLink,
-    Star, CheckCircle, ArrowRight
+    User, Mail, Phone, MapPin, Linkedin, Globe,
+    Briefcase, GraduationCap, Award, Code,
+    Languages, Star, Heart, Calendar, Building,
+    ExternalLink, Github, FileText, CheckCircle
 } from 'lucide-react';
-import { ParsedResume, ResumeExperience, ResumeEducation, ResumeCertification, ResumeProject } from '../lib/resume-parser';
+import { ParsedResume } from '../lib/resume-parser';
 
 interface ResumeDisplayProps {
-    parsedData: ParsedResume;
+    parsedResume: ParsedResume;
     className?: string;
 }
 
-export default function ResumeDisplay({ parsedData, className = '' }: ResumeDisplayProps) {
+export default function ResumeDisplay({ parsedResume, className = '' }: ResumeDisplayProps) {
+    const {
+        name, email, phone, location, linkedin, portfolio,
+        summary, skills, technologies, programming_languages, frameworks, tools,
+        experience, education, projects, certifications, languages, achievements, interests
+    } = parsedResume;
+
     const formatDate = (dateString: string) => {
-        if (!dateString) return 'Present';
-        try {
-            return new Date(dateString).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short'
-            });
-        } catch {
-            return dateString;
-        }
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     };
 
-    const getDuration = (startDate: string, endDate?: string) => {
-        if (!startDate) return '';
-        const start = new Date(startDate);
-        const end = endDate ? new Date(endDate) : new Date();
-        const diffTime = Math.abs(end.getTime() - start.getTime());
-        const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365));
-        const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
-
-        if (diffYears > 0) {
-            return `${diffYears} year${diffYears > 1 ? 's' : ''}${diffMonths > 0 ? ` ${diffMonths} month${diffMonths > 1 ? 's' : ''}` : ''}`;
-        }
-        return `${diffMonths} month${diffMonths > 1 ? 's' : ''}`;
+    const getDuration = (startDate: string, endDate?: string, current?: boolean) => {
+        if (current) return 'Present';
+        if (!endDate) return formatDate(startDate);
+        return `${formatDate(startDate)} - ${formatDate(endDate)}`;
     };
 
     return (
@@ -48,260 +41,499 @@ export default function ResumeDisplay({ parsedData, className = '' }: ResumeDisp
         >
             {/* Header */}
             <div className="mb-8">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="p-3 bg-cyan-500/20 rounded-2xl">
-                        <User className="w-8 h-8 text-cyan-400" />
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-blue-500/20 rounded-2xl">
+                        <FileText className="w-6 h-6 text-blue-400" />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-bold text-white">
-                            {parsedData.name || 'Resume Information'}
-                        </h1>
-                        {parsedData.summary && (
-                            <p className="text-white/70 mt-2 max-w-2xl">
-                                {parsedData.summary}
-                            </p>
+                        <h2 className="text-2xl font-bold text-white">Parsed Resume Data</h2>
+                        <p className="text-white/70">Extracted information from your resume</p>
+                    </div>
+                </div>
+
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <User className="w-5 h-5 text-cyan-400" />
+                            <div>
+                                <p className="text-white/50 text-sm">Name</p>
+                                <p className="text-white font-medium">{name || 'Not provided'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Mail className="w-5 h-5 text-green-400" />
+                            <div>
+                                <p className="text-white/50 text-sm">Email</p>
+                                <p className="text-white font-medium">{email || 'Not provided'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Phone className="w-5 h-5 text-purple-400" />
+                            <div>
+                                <p className="text-white/50 text-sm">Phone</p>
+                                <p className="text-white font-medium">{phone || 'Not provided'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <MapPin className="w-5 h-5 text-orange-400" />
+                            <div>
+                                <p className="text-white/50 text-sm">Location</p>
+                                <p className="text-white font-medium">{location || 'Not provided'}</p>
+                            </div>
+                        </div>
+                        {linkedin && (
+                            <div className="flex items-center gap-3">
+                                <Linkedin className="w-5 h-5 text-blue-400" />
+                                <div>
+                                    <p className="text-white/50 text-sm">LinkedIn</p>
+                                    <a
+                                        href={linkedin}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                                    >
+                                        View Profile <ExternalLink className="w-3 h-3 inline ml-1" />
+                                    </a>
+                                </div>
+                            </div>
+                        )}
+                        {portfolio && (
+                            <div className="flex items-center gap-3">
+                                <Globe className="w-5 h-5 text-green-400" />
+                                <div>
+                                    <p className="text-white/50 text-sm">Portfolio</p>
+                                    <a
+                                        href={portfolio}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-green-400 hover:text-green-300 transition-colors"
+                                    >
+                                        Visit Site <ExternalLink className="w-3 h-3 inline ml-1" />
+                                    </a>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* Contact Information */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {parsedData.email && (
-                        <div className="flex items-center gap-2 text-white/80">
-                            <Mail className="w-4 h-4 text-cyan-400" />
-                            <span>{parsedData.email}</span>
+                {/* Professional Summary */}
+                {summary && (
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <User className="w-5 h-5 text-blue-400" />
+                            <h3 className="text-lg font-semibold text-white">Professional Summary</h3>
                         </div>
-                    )}
-                    {parsedData.phone && (
-                        <div className="flex items-center gap-2 text-white/80">
-                            <Phone className="w-4 h-4 text-cyan-400" />
-                            <span>{parsedData.phone}</span>
-                        </div>
-                    )}
-                    {parsedData.location && (
-                        <div className="flex items-center gap-2 text-white/80">
-                            <MapPin className="w-4 h-4 text-cyan-400" />
-                            <span>{parsedData.location}</span>
-                        </div>
-                    )}
-                </div>
+                        <p className="text-white/80 leading-relaxed">{summary}</p>
+                    </div>
+                )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Content */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* Experience */}
-                    {parsedData.experience && parsedData.experience.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.1 }}
-                        >
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 bg-blue-500/20 rounded-xl">
-                                    <Briefcase className="w-5 h-5 text-blue-400" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-white">Work Experience</h2>
-                            </div>
-                            <div className="space-y-6">
-                                {parsedData.experience.map((exp, index) => (
-                                    <div key={index} className="bg-white/5 rounded-xl p-6 border border-white/10">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-white">{exp.title}</h3>
-                                                <p className="text-cyan-400 font-medium">{exp.company}</p>
-                                                {exp.location && (
-                                                    <p className="text-white/60 text-sm">{exp.location}</p>
-                                                )}
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-white/80 text-sm">
-                                                    {formatDate(exp.startDate)} - {exp.current ? 'Present' : formatDate(exp.endDate || '')}
-                                                </p>
-                                                <p className="text-white/60 text-xs">
-                                                    {getDuration(exp.startDate, exp.endDate)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {exp.description && exp.description.length > 0 && (
-                                            <ul className="space-y-2">
-                                                {exp.description.map((desc, descIndex) => (
-                                                    <li key={descIndex} className="flex items-start gap-2 text-white/80">
-                                                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                                                        <span>{desc}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* Projects */}
-                    {parsedData.projects && parsedData.projects.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                        >
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 bg-purple-500/20 rounded-xl">
-                                    <Code className="w-5 h-5 text-purple-400" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-white">Projects</h2>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {parsedData.projects.map((project, index) => (
-                                    <div key={index} className="bg-white/5 rounded-xl p-6 border border-white/10">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <h3 className="text-lg font-semibold text-white">{project.name}</h3>
-                                            {project.url && (
-                                                <a
-                                                    href={project.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-cyan-400 hover:text-cyan-300 transition-colors"
-                                                >
-                                                    <ExternalLink className="w-4 h-4" />
-                                                </a>
-                                            )}
-                                        </div>
-                                        <p className="text-white/80 mb-3">{project.description}</p>
-                                        {project.technologies && project.technologies.length > 0 && (
-                                            <div className="flex flex-wrap gap-2">
-                                                {project.technologies.map((tech, techIndex) => (
-                                                    <span
-                                                        key={techIndex}
-                                                        className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs"
-                                                    >
-                                                        {tech}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
+            {/* Skills & Technologies */}
+            <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                    <Code className="w-5 h-5 text-green-400" />
+                    <h3 className="text-lg font-semibold text-white">Skills & Technologies</h3>
                 </div>
 
-                {/* Sidebar */}
-                <div className="space-y-8">
-                    {/* Skills */}
-                    {parsedData.skills && parsedData.skills.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.1 }}
-                        >
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-green-500/20 rounded-xl">
-                                    <Star className="w-5 h-5 text-green-400" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Skills</h3>
-                            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {skills && skills.length > 0 && (
+                        <div>
+                            <h4 className="text-white/70 font-medium mb-3">General Skills</h4>
                             <div className="flex flex-wrap gap-2">
-                                {parsedData.skills.map((skill, index) => (
+                                {skills.map((skill, index) => (
                                     <span
                                         key={index}
-                                        className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm"
+                                        className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-xs"
                                     >
                                         {skill}
                                     </span>
                                 ))}
                             </div>
-                        </motion.div>
+                        </div>
                     )}
 
-                    {/* Education */}
-                    {parsedData.education && parsedData.education.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                        >
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-orange-500/20 rounded-xl">
-                                    <GraduationCap className="w-5 h-5 text-orange-400" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Education</h3>
-                            </div>
-                            <div className="space-y-4">
-                                {parsedData.education.map((edu, index) => (
-                                    <div key={index} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                                        <h4 className="text-white font-semibold">{edu.degree}</h4>
-                                        <p className="text-cyan-400 text-sm">{edu.institution}</p>
-                                        {edu.location && (
-                                            <p className="text-white/60 text-xs">{edu.location}</p>
-                                        )}
-                                        <p className="text-white/80 text-xs mt-1">
-                                            {formatDate(edu.startDate)} - {formatDate(edu.endDate || '')}
-                                        </p>
-                                        {edu.gpa && (
-                                            <p className="text-white/60 text-xs">GPA: {edu.gpa}</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* Certifications */}
-                    {parsedData.certifications && parsedData.certifications.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.3 }}
-                        >
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-yellow-500/20 rounded-xl">
-                                    <Award className="w-5 h-5 text-yellow-400" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Certifications</h3>
-                            </div>
-                            <div className="space-y-3">
-                                {parsedData.certifications.map((cert, index) => (
-                                    <div key={index} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                                        <h4 className="text-white font-semibold text-sm">{cert.name}</h4>
-                                        <p className="text-cyan-400 text-xs">{cert.issuer}</p>
-                                        {cert.date && (
-                                            <p className="text-white/60 text-xs mt-1">
-                                                {formatDate(cert.date)}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* Languages */}
-                    {parsedData.languages && parsedData.languages.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.4 }}
-                        >
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-indigo-500/20 rounded-xl">
-                                    <Globe className="w-5 h-5 text-indigo-400" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white">Languages</h3>
-                            </div>
+                    {programming_languages && programming_languages.length > 0 && (
+                        <div>
+                            <h4 className="text-white/70 font-medium mb-3">Programming Languages</h4>
                             <div className="flex flex-wrap gap-2">
-                                {parsedData.languages.map((language, index) => (
+                                {programming_languages.map((lang, index) => (
                                     <span
                                         key={index}
-                                        className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-sm"
+                                        className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs"
                                     >
-                                        {language}
+                                        {lang}
                                     </span>
                                 ))}
                             </div>
-                        </motion.div>
+                        </div>
+                    )}
+
+                    {frameworks && frameworks.length > 0 && (
+                        <div>
+                            <h4 className="text-white/70 font-medium mb-3">Frameworks</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {frameworks.map((framework, index) => (
+                                    <span
+                                        key={index}
+                                        className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs"
+                                    >
+                                        {framework}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {tools && tools.length > 0 && (
+                        <div>
+                            <h4 className="text-white/70 font-medium mb-3">Tools & Platforms</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {tools.map((tool, index) => (
+                                    <span
+                                        key={index}
+                                        className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-xs"
+                                    >
+                                        {tool}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Work Experience */}
+            {experience && experience.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Briefcase className="w-5 h-5 text-blue-400" />
+                        <h3 className="text-lg font-semibold text-white">Work Experience</h3>
+                    </div>
+
+                    <div className="space-y-6">
+                        {experience.map((exp, index) => (
+                            <motion.div
+                                key={index}
+                                className="bg-white/5 border border-white/10 rounded-xl p-6"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.3, delay: index * 0.1 }}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h4 className="text-white font-semibold text-lg">{exp.position}</h4>
+                                        <div className="flex items-center gap-2 text-white/70">
+                                            <Building className="w-4 h-4" />
+                                            <span>{exp.company}</span>
+                                        </div>
+                                        {exp.location && (
+                                            <div className="flex items-center gap-2 text-white/50 text-sm">
+                                                <MapPin className="w-3 h-3" />
+                                                <span>{exp.location}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="flex items-center gap-2 text-white/70 text-sm">
+                                            <Calendar className="w-4 h-4" />
+                                            <span>{getDuration(exp.start_date, exp.end_date, exp.current)}</span>
+                                        </div>
+                                        {exp.current && (
+                                            <span className="px-2 py-1 bg-green-500/20 text-green-300 rounded-full text-xs">
+                                                Current
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {exp.description && exp.description.length > 0 && (
+                                    <div className="mb-4">
+                                        <ul className="space-y-2">
+                                            {exp.description.map((desc, descIndex) => (
+                                                <li key={descIndex} className="text-white/80 text-sm flex items-start gap-2">
+                                                    <span className="text-blue-400 mt-1">•</span>
+                                                    <span>{desc}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {exp.technologies && exp.technologies.length > 0 && (
+                                    <div>
+                                        <h5 className="text-white/70 font-medium mb-2">Technologies Used</h5>
+                                        <div className="flex flex-wrap gap-2">
+                                            {exp.technologies.map((tech, techIndex) => (
+                                                <span
+                                                    key={techIndex}
+                                                    className="px-2 py-1 bg-blue-500/10 text-blue-300 rounded text-xs"
+                                                >
+                                                    {tech}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Education */}
+            {education && education.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                        <GraduationCap className="w-5 h-5 text-green-400" />
+                        <h3 className="text-lg font-semibold text-white">Education</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                        {education.map((edu, index) => (
+                            <motion.div
+                                key={index}
+                                className="bg-white/5 border border-white/10 rounded-xl p-6"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.3, delay: index * 0.1 }}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h4 className="text-white font-semibold">{edu.degree}</h4>
+                                        <p className="text-white/70">{edu.institution}</p>
+                                        {edu.field_of_study && (
+                                            <p className="text-white/50 text-sm">{edu.field_of_study}</p>
+                                        )}
+                                        {edu.gpa && (
+                                            <p className="text-white/50 text-sm">GPA: {edu.gpa}</p>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="flex items-center gap-2 text-white/70 text-sm">
+                                            <Calendar className="w-4 h-4" />
+                                            <span>{getDuration(edu.start_date, edu.end_date)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {edu.relevant_courses && edu.relevant_courses.length > 0 && (
+                                    <div className="mt-4">
+                                        <h5 className="text-white/70 font-medium mb-2">Relevant Courses</h5>
+                                        <div className="flex flex-wrap gap-2">
+                                            {edu.relevant_courses.map((course, courseIndex) => (
+                                                <span
+                                                    key={courseIndex}
+                                                    className="px-2 py-1 bg-green-500/10 text-green-300 rounded text-xs"
+                                                >
+                                                    {course}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Projects */}
+            {projects && projects.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Code className="w-5 h-5 text-purple-400" />
+                        <h3 className="text-lg font-semibold text-white">Projects</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                        {projects.map((project, index) => (
+                            <motion.div
+                                key={index}
+                                className="bg-white/5 border border-white/10 rounded-xl p-6"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.3, delay: index * 0.1 }}
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <h4 className="text-white font-semibold">{project.name}</h4>
+                                    <div className="flex gap-2">
+                                        {project.github && (
+                                            <a
+                                                href={project.github}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 text-white/50 hover:text-white transition-colors"
+                                                title="View on GitHub"
+                                            >
+                                                <Github className="w-4 h-4" />
+                                            </a>
+                                        )}
+                                        {project.url && (
+                                            <a
+                                                href={project.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 text-white/50 hover:text-white transition-colors"
+                                                title="View Live"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <p className="text-white/80 text-sm mb-4">{project.description}</p>
+
+                                {project.technologies && project.technologies.length > 0 && (
+                                    <div className="mb-3">
+                                        <h5 className="text-white/70 font-medium mb-2">Technologies</h5>
+                                        <div className="flex flex-wrap gap-2">
+                                            {project.technologies.map((tech, techIndex) => (
+                                                <span
+                                                    key={techIndex}
+                                                    className="px-2 py-1 bg-purple-500/10 text-purple-300 rounded text-xs"
+                                                >
+                                                    {tech}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {project.highlights && project.highlights.length > 0 && (
+                                    <div>
+                                        <h5 className="text-white/70 font-medium mb-2">Key Features</h5>
+                                        <ul className="space-y-1">
+                                            {project.highlights.map((highlight, highlightIndex) => (
+                                                <li key={highlightIndex} className="text-white/60 text-sm flex items-start gap-2">
+                                                    <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                                                    <span>{highlight}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Certifications */}
+            {certifications && certifications.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Award className="w-5 h-5 text-yellow-400" />
+                        <h3 className="text-lg font-semibold text-white">Certifications</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {certifications.map((cert, index) => (
+                            <motion.div
+                                key={index}
+                                className="bg-white/5 border border-white/10 rounded-xl p-4"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3, delay: index * 0.1 }}
+                            >
+                                <h4 className="text-white font-semibold mb-2">{cert.name}</h4>
+                                <p className="text-white/70 text-sm mb-2">{cert.issuer}</p>
+                                <div className="flex items-center gap-2 text-white/50 text-xs">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>{formatDate(cert.date)}</span>
+                                    {cert.expiry_date && (
+                                        <>
+                                            <span>•</span>
+                                            <span>Expires: {formatDate(cert.expiry_date)}</span>
+                                        </>
+                                    )}
+                                </div>
+                                {cert.url && (
+                                    <a
+                                        href={cert.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs mt-2"
+                                    >
+                                        Verify <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Additional Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Languages */}
+                {languages && languages.length > 0 && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <Languages className="w-5 h-5 text-blue-400" />
+                            <h3 className="text-lg font-semibold text-white">Languages</h3>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {languages.map((language, index) => (
+                                <span
+                                    key={index}
+                                    className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm"
+                                >
+                                    {language}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Achievements */}
+                {achievements && achievements.length > 0 && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <Star className="w-5 h-5 text-yellow-400" />
+                            <h3 className="text-lg font-semibold text-white">Achievements</h3>
+                        </div>
+                        <ul className="space-y-2">
+                            {achievements.map((achievement, index) => (
+                                <li key={index} className="text-white/80 text-sm flex items-start gap-2">
+                                    <span className="text-yellow-400 mt-1">•</span>
+                                    <span>{achievement}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Interests */}
+                {interests && interests.length > 0 && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <Heart className="w-5 h-5 text-red-400" />
+                            <h3 className="text-lg font-semibold text-white">Interests</h3>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {interests.map((interest, index) => (
+                                <span
+                                    key={index}
+                                    className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm"
+                                >
+                                    {interest}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Parsing Metadata */}
+            <div className="mt-8 pt-6 border-t border-white/10">
+                <div className="flex items-center justify-between text-white/50 text-sm">
+                    <span>Parsed on: {parsedResume.parsed_at ? formatDate(parsedResume.parsed_at) : 'Unknown'}</span>
+                    {parsedResume.confidence_score && (
+                        <span>Confidence: {(parsedResume.confidence_score * 100).toFixed(0)}%</span>
                     )}
                 </div>
             </div>

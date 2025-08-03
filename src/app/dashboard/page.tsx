@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, Users, Settings, BarChart3, Plus, RefreshCw, Eye, CheckCircle, XCircle, Clock, Filter, ChevronDown, ChevronUp, User, LogOut, CreditCard, Calendar, Target, Zap, Shield, Globe, Star, TrendingUp, Building2, MapPin, Mail, Phone, ExternalLink, Trash2, Edit3, Save, X, AlertCircle, Check, ArrowRight, Download, Upload, Database, Server, Network, Wifi, WifiOff, Activity, BarChart, PieChart, LineChart, AreaChart, ListChecks, Brain, Linkedin, FileText } from 'lucide-react';
+import { Search, Loader2, Users, Settings, BarChart3, Plus, RefreshCw, Eye, CheckCircle, XCircle, Clock, Filter, ChevronDown, ChevronUp, User, LogOut, CreditCard, Calendar, Target, Zap, Shield, Globe, Star, TrendingUp, Building2, MapPin, Mail, Phone, ExternalLink, Trash2, Edit3, Save, X, AlertCircle, Check, ArrowRight, Download, Upload, Database, Server, Network, Wifi, WifiOff, Activity, BarChart, PieChart, LineChart, AreaChart, ListChecks, Brain, Linkedin, FileText, Code } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/shared/Navbar';
@@ -16,6 +16,8 @@ import { ProfileService, Resume } from '../../lib/profile-service';
 import PricingSection from '../../components/PricingSection/page';
 import CronManager from '../../components/CronManager/page';
 import LocationAutocomplete from '@/components/LocationAutocomplete';
+import ResumeDisplay from '../../components/ResumeDisplay';
+import { ParsedResume } from '../../lib/resume-parser';
 
 type SidebarItem = {
     key: string;
@@ -2669,6 +2671,9 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [dragActive, setDragActive] = useState(false);
+    const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
+    const [isParsing, setIsParsing] = useState(false);
+    const [parsedData, setParsedData] = useState<ParsedResume | null>(null);
 
     const fetchResumes = async () => {
         if (!userProfile?.user_id) return;
@@ -2757,6 +2762,33 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
         }
     };
 
+    const parseResume = async (resumeId: string) => {
+        setIsParsing(true);
+        try {
+            const response = await fetch('/api/resume/parse', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ resumeId }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                toast.success('Resume parsed successfully!');
+                setParsedData(data.parsedData);
+                fetchResumes(); // Refresh to get updated parsed data
+            } else {
+                toast.error(data.error || 'Failed to parse resume');
+            }
+        } catch (error) {
+            console.error('❌ Error parsing resume:', error);
+            toast.error('Failed to parse resume');
+        } finally {
+            setIsParsing(false);
+        }
+    };
+
     const handleDrag = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -2806,8 +2838,8 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-4xl font-bold text-white mb-2">Resume Upload</h1>
-                    <p className="text-white/70">Upload and manage your resumes for job applications</p>
+                    <h1 className="text-4xl font-bold text-white mb-2">Resume Upload & Parsing</h1>
+                    <p className="text-white/70">Upload resumes and extract information for personalized cover letters</p>
                 </div>
                 <button
                     onClick={fetchResumes}
@@ -2838,7 +2870,7 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
 
                 {/* File Upload Area */}
                 <div
-                    className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${dragActive
+                    className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${dragActive
                         ? 'border-cyan-400 bg-cyan-400/10'
                         : 'border-white/20 hover:border-white/40'
                         }`}
@@ -2928,7 +2960,7 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-white">Your Resumes</h2>
-                        <p className="text-white/70">Manage your uploaded resumes</p>
+                        <p className="text-white/70">Manage and parse your uploaded resumes</p>
                     </div>
                 </div>
 
@@ -2954,14 +2986,37 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
                                         <FileText className="w-5 h-5 text-blue-400" />
                                     </div>
                                     <div>
-                                        <p className="text-white font-medium">{resume.filename}</p>
+                                        <p className="text-white font-medium">{resume.file_name}</p>
                                         <p className="text-white/50 text-sm">
                                             {(resume.file_size / 1024 / 1024).toFixed(2)} MB • Uploaded{' '}
                                             {new Date(resume.upload_date).toLocaleDateString()}
                                         </p>
+                                        {resume.parsed_data && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-300 rounded-full text-xs mt-1">
+                                                <CheckCircle className="w-3 h-3" />
+                                                Parsed
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setSelectedResume(resume)}
+                                        className="p-2 text-blue-400 hover:text-blue-300 transition-colors"
+                                        title="View Details"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                    </button>
+                                    {!resume.parsed_data && (
+                                        <button
+                                            onClick={() => parseResume(resume.id)}
+                                            disabled={isParsing}
+                                            className="p-2 text-green-400 hover:text-green-300 transition-colors"
+                                            title="Parse Resume"
+                                        >
+                                            <Code className={`w-4 h-4 ${isParsing ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    )}
                                     <a
                                         href={resume.file_url}
                                         target="_blank"
@@ -2985,22 +3040,91 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
                 )}
             </motion.div>
 
+            {/* Parsed Data Display */}
+            {selectedResume && (selectedResume.parsed_data || parsedData) && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                >
+                    <ResumeDisplay
+                        parsedResume={selectedResume.parsed_data || parsedData!}
+                        className="mb-8"
+                    />
+                </motion.div>
+            )}
+
+            {/* Cover Letter Generation */}
+            {selectedResume && (selectedResume.parsed_data || parsedData) && (
+                <motion.div
+                    className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.5 }}
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 bg-purple-500/20 rounded-2xl">
+                            <FileText className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-white">Cover Letter Generator</h2>
+                            <p className="text-white/70">Generate personalized cover letters based on your resume</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-white/70 text-sm font-medium mb-2">Company Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter company name"
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400 transition-colors"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-white/70 text-sm font-medium mb-2">Job Title</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter job title"
+                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400 transition-colors"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-white/70 text-sm font-medium mb-2">Job Description</label>
+                            <textarea
+                                placeholder="Paste the job description here..."
+                                rows={6}
+                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-cyan-400 transition-colors resize-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-6">
+                        <button className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-2xl font-semibold hover:from-purple-400 hover:to-purple-500 transition-all duration-300">
+                            Generate Cover Letter
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Benefits Section */}
             <motion.div
                 className="bg-gradient-to-br from-slate-800/50 to-slate-700/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
             >
-                <h3 className="text-xl font-semibold text-white mb-6">Benefits of Resume Upload</h3>
+                <h3 className="text-xl font-semibold text-white mb-6">Benefits of Resume Parsing</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex items-start gap-3">
                         <div className="p-2 bg-green-500/20 rounded-xl">
                             <Check className="w-5 h-5 text-green-400" />
                         </div>
                         <div>
-                            <h4 className="text-white font-medium mb-1">Easy Management</h4>
-                            <p className="text-white/70 text-sm">Keep all your resumes organized in one place</p>
+                            <h4 className="text-white font-medium mb-1">Smart Extraction</h4>
+                            <p className="text-white/70 text-sm">Automatically extract skills, experience, and education from your resume</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -3008,8 +3132,8 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
                             <Zap className="w-5 h-5 text-blue-400" />
                         </div>
                         <div>
-                            <h4 className="text-white font-medium mb-1">Quick Access</h4>
-                            <p className="text-white/70 text-sm">Download and share your resumes instantly</p>
+                            <h4 className="text-white font-medium mb-1">Personalized Cover Letters</h4>
+                            <p className="text-white/70 text-sm">Generate tailored cover letters using your extracted information</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -3017,8 +3141,8 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
                             <Shield className="w-5 h-5 text-purple-400" />
                         </div>
                         <div>
-                            <h4 className="text-white font-medium mb-1">Secure Storage</h4>
-                            <p className="text-white/70 text-sm">Your resumes are stored securely in the cloud</p>
+                            <h4 className="text-white font-medium mb-1">AI-Powered Parsing</h4>
+                            <p className="text-white/70 text-sm">Advanced AI algorithms ensure accurate information extraction</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -3026,8 +3150,8 @@ function ResumeUploadSection({ userProfile }: { userProfile: UserProfile | null 
                             <Target className="w-5 h-5 text-cyan-400" />
                         </div>
                         <div>
-                            <h4 className="text-white font-medium mb-1">Multiple Formats</h4>
-                            <p className="text-white/70 text-sm">Support for PDF, DOCX, DOC, and TXT files</p>
+                            <h4 className="text-white font-medium mb-1">Job Matching</h4>
+                            <p className="text-white/70 text-sm">Match your skills with job requirements for better applications</p>
                         </div>
                     </div>
                 </div>

@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
 
         if (resumeId) {
             // Get specific resume
-            const resume = await ProfileService.getResume(resumeId, userId);
-            
+            const resume = await ProfileService.getResumeWithParsedData(resumeId);
+
             if (!resume) {
                 return NextResponse.json(
                     { error: 'Resume not found' },
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         } else {
             // Get all resumes for user
             const resumes = await ProfileService.getResumes(userId);
-            
+
             return NextResponse.json({
                 success: true,
                 resumes
@@ -76,39 +76,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Upload file to Supabase storage
-        const fileUrl = await ProfileService.uploadFile(file, userId, 'resumes');
-        
-        if (!fileUrl) {
+        const resume = await ProfileService.uploadResume(userId, file);
+
+        if (!resume) {
             return NextResponse.json(
                 { error: 'Failed to upload file' },
-                { status: 500 }
-            );
-        }
-
-        // Create resume record
-        const resume = {
-            user_id: userId,
-            file_name: file.name,
-            file_url: fileUrl,
-            file_size: file.size,
-            file_type: file.type,
-            parsed_data: {}, // Will be populated by resume parsing service
-            name: '',
-            email: '',
-            phone: '',
-            skills: [],
-            experience: [],
-            education: [],
-            certifications: [],
-            languages: [],
-            summary: ''
-        };
-
-        const savedResume = await ProfileService.saveResume(resume);
-
-        if (!savedResume) {
-            return NextResponse.json(
-                { error: 'Failed to save resume' },
                 { status: 500 }
             );
         }
@@ -116,47 +88,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             message: 'Resume uploaded successfully',
-            resume: savedResume
+            resume: resume
         });
     } catch (error) {
         console.error('Error in POST /api/resume:', error);
         return NextResponse.json(
             { error: 'Failed to upload resume' },
-            { status: 500 }
-        );
-    }
-}
-
-export async function PUT(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { resumeId, userId, updates } = body;
-
-        if (!resumeId || !userId) {
-            return NextResponse.json(
-                { error: 'Resume ID and User ID are required' },
-                { status: 400 }
-            );
-        }
-
-        const updatedResume = await ProfileService.updateResume(resumeId, updates);
-
-        if (!updatedResume) {
-            return NextResponse.json(
-                { error: 'Failed to update resume' },
-                { status: 500 }
-            );
-        }
-
-        return NextResponse.json({
-            success: true,
-            message: 'Resume updated successfully',
-            resume: updatedResume
-        });
-    } catch (error) {
-        console.error('Error in PUT /api/resume:', error);
-        return NextResponse.json(
-            { error: 'Failed to update resume' },
             { status: 500 }
         );
     }
@@ -175,22 +112,8 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Get resume to get file URL for deletion
-        const resume = await ProfileService.getResume(resumeId, userId);
-        if (!resume) {
-            return NextResponse.json(
-                { error: 'Resume not found' },
-                { status: 404 }
-            );
-        }
-
-        // Delete file from storage
-        if (resume.file_url) {
-            await ProfileService.deleteFile(resume.file_url);
-        }
-
         // Delete resume record
-        const success = await ProfileService.deleteResume(resumeId, userId);
+        const success = await ProfileService.deleteResume(resumeId);
 
         if (!success) {
             return NextResponse.json(
