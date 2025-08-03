@@ -2125,7 +2125,7 @@ function AnalyticsSection({ userProfile }: { userProfile: UserProfile | null }) 
 }
 
 function LinkedInProfileSection({ userProfile }: { userProfile: UserProfile | null }) {
-    const [linkedinProfile, setLinkedinProfile] = useState<any | null>(null);
+    const [linkedinProfile, setLinkedinProfile] = useState<LinkedInProfile | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -2524,7 +2524,7 @@ function LinkedInProfileSection({ userProfile }: { userProfile: UserProfile | nu
                                             </button>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
-                                            {profileData.skills.map((skill: string, index: number) => (
+                                            {profileData.skills.map((skill, index) => (
                                                 <span
                                                     key={index}
                                                     className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs flex items-center gap-2"
@@ -2583,7 +2583,7 @@ function LinkedInProfileSection({ userProfile }: { userProfile: UserProfile | nu
                                             <label className="block text-sm font-medium text-white/70 mb-1">Skills</label>
                                             <div className="flex flex-wrap gap-2">
                                                 {linkedinProfile.skills && linkedinProfile.skills.length > 0 ? (
-                                                    linkedinProfile.skills.map((skill: string, index: number) => (
+                                                    linkedinProfile.skills.map((skill, index) => (
                                                         <span
                                                             key={index}
                                                             className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs"
