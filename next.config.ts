@@ -2,9 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  experimental: {
-    appDir: true,
-  },
+
   typescript: {
     // Ignore TypeScript errors during build for now
     ignoreBuildErrors: true,
