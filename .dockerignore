@@ -1,0 +1,11 @@
+terraform
+node_modules
+.next
+.git
+.env
+.env.local
+.env.production
+.DS_Store
+README.md
+Dockerfile
+.dockerignore

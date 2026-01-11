@@ -1,0 +1,41 @@
+name: Buid & Push docker image
+
+on:
+  push:
+    branches: ["main"]
+
+env:
+  Registry: ghcr.io
+  ImageName: ${{github.repository}}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: checkout repository
+      uses: actions/checkout@v4
+
+    - name: Login to the container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{env.Registry}}
+        username: ${{github.actor}}
+        password: ${{secrets.GITHUB_TOKEN}}
+
+    - name: Extract metadata for docker image
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{env.Registry}}/${{env.ImageName}}
+    
+    - name: Build the docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{steps.meta.outputs.tags}}
+        labels: ${{steps.meta.outputs.labels}}
