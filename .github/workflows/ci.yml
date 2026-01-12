@@ -39,3 +39,7 @@ jobs:
         push: true
         tags: ${{steps.meta.outputs.tags}}
         labels: ${{steps.meta.outputs.labels}}
+        build-args: |
+          DODO_WEBHOOK_KEY=${{ secrets.DODO_WEBHOOK_KEY }}
+          NEXT_PUBLIC_CLERK_SECRET_KEY=${{ secrets.NEXT_PUBLIC_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
