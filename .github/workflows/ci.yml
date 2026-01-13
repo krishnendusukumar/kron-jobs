@@ -43,3 +43,23 @@ jobs:
           DODO_WEBHOOK_KEY=${{ secrets.DODO_WEBHOOK_KEY }}
           NEXT_PUBLIC_CLERK_SECRET_KEY=${{ secrets.NEXT_PUBLIC_CLERK_SECRET_KEY }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure aws credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID}}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
+        aws-region: us-east-1
+
+    - name: Update kube configure
+      run: aws eks update-kubeconfig --name kron-cluster --region us-east-1
+
+    - name: Deploy manifest
+      run: kubectl apply -f k8s/
