@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kron-job-Deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kron-jobs
+  template:
+    metadata:
+      labels:
+        app: kron-jobs
+    spec:
+      containers:
+        - name: kron-jobs
+          image: ghcr.io/krishnendusukumar/kron-jobs:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: kron-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "128m"
+            limits:
+              memory: "256Mi"
+              cpu: "256m"
