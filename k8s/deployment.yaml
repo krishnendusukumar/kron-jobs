@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kron-job-Deployment
+  name: kron-jobs
 spec:
   replicas: 2
   selector:
